@@ -1,110 +1,78 @@
 """Unit tests for data models."""
 
 from datetime import datetime
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
 
-from around_the_grounds.models import Brewery, FoodTruckEvent
+from around_the_grounds.models import Venue, Event
 
 
-class TestBrewery:
-    """Test the Brewery model."""
+class TestVenue:
+    """Test the Venue model."""
 
-    def test_brewery_creation(self) -> None:
-        """Test basic brewery creation."""
-        brewery = Brewery(
-            key="test-key", name="Test Brewery", url="https://example.com"
+    def test_venue_creation(self) -> None:
+        """Test basic venue creation."""
+        venue = Venue(
+            key="test-key", name="Test Venue", url="https://example.com",
+            source_type="html"
         )
+        assert venue.key == "test-key"
+        assert venue.name == "Test Venue"
+        assert venue.url == "https://example.com"
+        assert venue.source_type == "html"
+        assert venue.parser_config == {}
 
-        assert brewery.key == "test-key"
-        assert brewery.name == "Test Brewery"
-        assert brewery.url == "https://example.com"
-        assert brewery.parser_config == {}
+    def test_venue_invalid_source_type(self) -> None:
+        """Test venue validation rejects invalid source_type."""
+        import pytest
+        with pytest.raises(ValueError, match="Invalid source_type"):
+            Venue(key="k", name="n", url="u", source_type="invalid")
 
-    def test_brewery_with_config(self) -> None:
-        """Test brewery creation with parser config."""
-        config = {"test": "value"}
-        brewery = Brewery(
-            key="test-key",
-            name="Test Brewery",
-            url="https://example.com",
-            parser_config=config,
+    def test_venue_valid_source_types(self) -> None:
+        """Test all valid source types."""
+        for st in ["html", "ical", "api"]:
+            v = Venue(key="k", name="n", url="u", source_type=st)
+            assert v.source_type == st
+
+
+class TestEvent:
+    """Test the Event model."""
+
+    def test_event_creation(self) -> None:
+        """Test basic event creation with tz-aware datetime."""
+        dt = datetime(2025, 7, 5, 12, 0, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
+        event = Event(
+            venue_key="test-venue",
+            venue_name="Test Venue",
+            title="Test Truck",
+            datetime_start=dt,
         )
+        assert event.venue_key == "test-venue"
+        assert event.venue_name == "Test Venue"
+        assert event.title == "Test Truck"
+        assert event.datetime_start == dt
+        assert event.datetime_end is None
+        assert event.extraction_method == "html"
 
-        assert brewery.parser_config == config
+    def test_event_rejects_naive_datetime(self) -> None:
+        """Test that naive datetime_start raises ValueError."""
+        import pytest
+        with pytest.raises(ValueError, match="timezone-aware"):
+            Event(
+                venue_key="k",
+                venue_name="n",
+                title="t",
+                datetime_start=datetime(2025, 7, 5, 12, 0, 0),  # naive
+            )
 
-    def test_brewery_equality(self) -> None:
-        """Test brewery equality comparison."""
-        brewery1 = Brewery("key1", "Name1", "url1")
-        brewery2 = Brewery("key1", "Name1", "url1")
-        brewery3 = Brewery("key2", "Name1", "url1")
-
-        assert brewery1 == brewery2
-        assert brewery1 != brewery3
-
-
-class TestFoodTruckEvent:
-    """Test the FoodTruckEvent model."""
-
-    def test_food_truck_event_creation(self) -> None:
-        """Test basic food truck event creation."""
-        event_date = datetime(2025, 7, 5, 12, 0, 0)
-
-        event = FoodTruckEvent(
-            brewery_key="test-brewery",
-            brewery_name="Test Brewery",
-            food_truck_name="Test Truck",
-            date=event_date,
+    def test_event_with_end_time(self) -> None:
+        """Test event with tz-aware end time."""
+        dt = datetime(2025, 7, 5, 12, 0, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
+        end = datetime(2025, 7, 5, 20, 0, 0, tzinfo=ZoneInfo("America/Los_Angeles"))
+        event = Event(
+            venue_key="k", venue_name="n", title="t",
+            datetime_start=dt, datetime_end=end,
         )
-
-        assert event.brewery_key == "test-brewery"
-        assert event.brewery_name == "Test Brewery"
-        assert event.food_truck_name == "Test Truck"
-        assert event.date == event_date
-        assert event.start_time is None
-        assert event.end_time is None
-        assert event.description is None
-
-    def test_food_truck_event_with_times(self) -> None:
-        """Test food truck event with start and end times."""
-        event_date = datetime(2025, 7, 5, 12, 0, 0)
-        start_time = datetime(2025, 7, 5, 13, 0, 0)
-        end_time = datetime(2025, 7, 5, 20, 0, 0)
-
-        event = FoodTruckEvent(
-            brewery_key="test-brewery",
-            brewery_name="Test Brewery",
-            food_truck_name="Test Truck",
-            date=event_date,
-            start_time=start_time,
-            end_time=end_time,
-            description="Test description",
-        )
-
-        assert event.start_time == start_time
-        assert event.end_time == end_time
-        assert event.description == "Test description"
-
-    def test_food_truck_event_equality(self) -> None:
-        """Test food truck event equality comparison."""
-        event_date = datetime(2025, 7, 5, 12, 0, 0)
-
-        event1 = FoodTruckEvent("key1", "Name1", "Truck1", event_date)
-        event2 = FoodTruckEvent("key1", "Name1", "Truck1", event_date)
-        event3 = FoodTruckEvent("key2", "Name1", "Truck1", event_date)
-
-        assert event1 == event2
-        assert event1 != event3
-
-    def test_food_truck_event_string_representation(self) -> None:
-        """Test string representation of food truck event."""
-        event_date = datetime(2025, 7, 5, 12, 0, 0)
-
-        event = FoodTruckEvent(
-            brewery_key="test-brewery",
-            brewery_name="Test Brewery",
-            food_truck_name="Test Truck",
-            date=event_date,
-        )
-
-        str_repr = str(event)
-        assert "Test Truck" in str_repr
-        assert "Test Brewery" in str_repr
+        assert event.datetime_end == end

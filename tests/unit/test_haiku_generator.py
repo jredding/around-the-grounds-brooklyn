@@ -4,29 +4,33 @@ import pytest
 from datetime import datetime
 from unittest.mock import AsyncMock, Mock, patch
 
-from around_the_grounds.models import FoodTruckEvent
+from around_the_grounds.models import Event
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
+
+PACIFIC_TZ = ZoneInfo("America/Los_Angeles")
 from around_the_grounds.utils.haiku_generator import HaikuGenerator
 
 
 @pytest.fixture
 def sample_events() -> list:
-    """Create sample food truck events for testing."""
+    """Create sample events for testing."""
     return [
-        FoodTruckEvent(
-            brewery_key="stoup-ballard",
-            brewery_name="Stoup Brewing",
-            food_truck_name="Georgia's Greek",
-            date=datetime(2025, 10, 13),
-            start_time=datetime(2025, 10, 13, 17, 0),
-            end_time=datetime(2025, 10, 13, 21, 0),
+        Event(
+            venue_key="stoup-ballard",
+            venue_name="Stoup Brewing",
+            title="Georgia's Greek",
+            datetime_start=datetime(2025, 10, 13, 17, 0, tzinfo=PACIFIC_TZ),
+            datetime_end=datetime(2025, 10, 13, 21, 0, tzinfo=PACIFIC_TZ),
         ),
-        FoodTruckEvent(
-            brewery_key="urban-family",
-            brewery_name="Urban Family Brewing",
-            food_truck_name="MomoExpress",
-            date=datetime(2025, 10, 13),
-            start_time=datetime(2025, 10, 13, 18, 0),
-            end_time=datetime(2025, 10, 13, 22, 0),
+        Event(
+            venue_key="urban-family",
+            venue_name="Urban Family Brewing",
+            title="MomoExpress",
+            datetime_start=datetime(2025, 10, 13, 18, 0, tzinfo=PACIFIC_TZ),
+            datetime_end=datetime(2025, 10, 13, 22, 0, tzinfo=PACIFIC_TZ),
         ),
     ]
 

@@ -14,7 +14,7 @@ import pytest
 from aioresponses import aioresponses
 from freezegun import freeze_time
 
-from around_the_grounds.models import Brewery
+from around_the_grounds.models import Venue
 from around_the_grounds.parsers.bale_breaker import BaleBreakerParser
 
 
@@ -22,17 +22,18 @@ class TestBaleBreakerParser:
     """Test the BaleBreakerParser class."""
 
     @pytest.fixture
-    def brewery(self) -> Brewery:
+    def brewery(self) -> Venue:
         """Create a test brewery for Bale Breaker."""
-        return Brewery(
+        return Venue(
             key="yonder-balebreaker",
             name="Yonder Cider & Bale Breaker - Ballard",
             url="https://www.bbycballard.com/food-trucks-1-1",
+            source_type="html",
             parser_config={},
         )
 
     @pytest.fixture
-    def parser(self, brewery: Brewery) -> BaleBreakerParser:
+    def parser(self, brewery: Venue) -> BaleBreakerParser:
         """Create a parser instance."""
         return BaleBreakerParser(brewery)
 
@@ -81,7 +82,7 @@ class TestBaleBreakerParser:
         """Test successful parsing with API data."""
         with aioresponses() as m:
             # Mock the main page request
-            m.get(parser.brewery.url, status=200, body=sample_html_with_calendar)
+            m.get(parser.venue.url, status=200, body=sample_html_with_calendar)
 
             # Mock the API requests for different months (using current format MMMM-YYYY)
             base_api_url = "https://www.bbycballard.com/api/open/GetItemsByMonth"
@@ -95,10 +96,10 @@ class TestBaleBreakerParser:
 
                 assert len(events) == 2
                 assert all(
-                    event.brewery_key == "yonder-balebreaker" for event in events
+                    event.venue_key == "yonder-balebreaker" for event in events
                 )
-                assert events[0].food_truck_name == "Georgia's Greek"
-                assert events[1].food_truck_name == "Wood Shop BBQ"
+                assert events[0].title == "Georgia's Greek"
+                assert events[1].title == "Wood Shop BBQ"
 
     @pytest.mark.asyncio
     async def test_parse_no_collection_id_fallback(
@@ -108,15 +109,15 @@ class TestBaleBreakerParser:
         html_without_calendar = "<html><body><p>No calendar here</p></body></html>"
 
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body=html_without_calendar)
+            m.get(parser.venue.url, status=200, body=html_without_calendar)
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
 
                 # Should return fallback event
                 assert len(events) == 1
-                assert "Check Instagram @BaleBreaker" in events[0].food_truck_name
-                assert events[0].brewery_key == "yonder-balebreaker"
+                assert "Check Instagram @BaleBreaker" in events[0].title
+                assert events[0].venue_key == "yonder-balebreaker"
 
     @pytest.mark.asyncio
     @freeze_time("2025-07-01")
@@ -126,7 +127,7 @@ class TestBaleBreakerParser:
         """Test fallback when API requests fail."""
         with aioresponses() as m:
             # Mock successful main page request
-            m.get(parser.brewery.url, status=200, body=sample_html_with_calendar)
+            m.get(parser.venue.url, status=200, body=sample_html_with_calendar)
 
             # Mock failing API requests (using current format MMMM-YYYY)
             base_api_url = "https://www.bbycballard.com/api/open/GetItemsByMonth"
@@ -139,7 +140,7 @@ class TestBaleBreakerParser:
 
                 # Should return fallback event when API fails
                 assert len(events) == 1
-                assert "Check Instagram @BaleBreaker" in events[0].food_truck_name
+                assert "Check Instagram @BaleBreaker" in events[0].title
 
     @pytest.mark.asyncio
     async def test_parse_network_error_fallback(
@@ -147,14 +148,14 @@ class TestBaleBreakerParser:
     ) -> None:
         """Test handling of network errors with fallback."""
         with aioresponses() as m:
-            m.get(parser.brewery.url, exception=aiohttp.ClientError("Network error"))
+            m.get(parser.venue.url, exception=aiohttp.ClientError("Network error"))
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
 
                 # Should return fallback instead of raising
                 assert len(events) == 1
-                assert "Check Instagram @BaleBreaker" in events[0].food_truck_name
+                assert "Check Instagram @BaleBreaker" in events[0].title
 
     def test_extract_collection_id_from_calendar_block(
         self, parser: BaleBreakerParser
@@ -206,10 +207,10 @@ class TestBaleBreakerParser:
         event = parser._parse_api_event(event_data)
 
         assert event is not None
-        assert event.food_truck_name == "Test Food Truck"
-        assert event.brewery_key == "yonder-balebreaker"
-        assert isinstance(event.date, datetime)
-        assert isinstance(event.end_time, datetime)
+        assert event.title == "Test Food Truck"
+        assert event.venue_key == "yonder-balebreaker"
+        assert isinstance(event.datetime_start, datetime)
+        assert isinstance(event.datetime_end, datetime)
 
     def test_parse_api_event_no_title(self, parser: BaleBreakerParser) -> None:
         """Test parsing API event with no title."""
@@ -231,9 +232,9 @@ class TestBaleBreakerParser:
 
         assert len(events) == 1
         event = events[0]
-        assert "Check Instagram @BaleBreaker" in event.food_truck_name
+        assert "Check Instagram @BaleBreaker" in event.title
         assert event.description is not None and "check Instagram" in event.description
-        assert event.brewery_key == "yonder-balebreaker"
+        assert event.venue_key == "yonder-balebreaker"
 
     @pytest.mark.asyncio
     @freeze_time("2025-07-01")
@@ -255,8 +256,8 @@ class TestBaleBreakerParser:
                 events = await parser._fetch_calendar_events(session, collection_id)
 
                 assert len(events) == 2
-                assert events[0].food_truck_name == "Georgia's Greek"
-                assert events[1].food_truck_name == "Wood Shop BBQ"
+                assert events[0].title == "Georgia's Greek"
+                assert events[1].title == "Wood Shop BBQ"
 
     @pytest.mark.asyncio
     @freeze_time("2025-07-01")
@@ -291,7 +292,7 @@ class TestBaleBreakerParser:
             real_html = fixture_path.read_text()
 
             with aioresponses() as m:
-                m.get(parser.brewery.url, status=200, body=real_html)
+                m.get(parser.venue.url, status=200, body=real_html)
 
                 # Mock API responses since we can't make real API calls in tests (using current format MMMM-YYYY)
                 base_api_url = "https://www.bbycballard.com/api/open/GetItemsByMonth"
@@ -321,9 +322,9 @@ class TestBaleBreakerParser:
 
         assert event is not None
         # In PDT (UTC-7), 16:00 UTC should be 09:00 PDT
-        assert event.date.hour == 9
-        assert event.end_time is not None
-        assert event.end_time.hour == 13
+        assert event.datetime_start.hour == 9
+        assert event.datetime_end is not None
+        assert event.datetime_end.hour == 13
 
         # Verify using proper timezone
         utc_time = datetime.fromtimestamp(utc_timestamp_ms / 1000, tz=timezone.utc)
@@ -331,8 +332,8 @@ class TestBaleBreakerParser:
         expected_pacific = utc_time.astimezone(pacific_tz)
 
         # Event times should match proper timezone conversion
-        assert event.date.hour == expected_pacific.hour
-        assert event.date.minute == expected_pacific.minute
+        assert event.datetime_start.hour == expected_pacific.hour
+        assert event.datetime_start.minute == expected_pacific.minute
 
     def test_timezone_conversion_pst_winter(self, parser: BaleBreakerParser) -> None:
         """Test timezone conversion during PST (Pacific Standard Time) period."""
@@ -349,9 +350,9 @@ class TestBaleBreakerParser:
 
         assert event is not None
         # In PST (UTC-8), 14:00 UTC should be 06:00 PST
-        assert event.date.hour == 6
-        assert event.end_time is not None
-        assert event.end_time.hour == 10
+        assert event.datetime_start.hour == 6
+        assert event.datetime_end is not None
+        assert event.datetime_end.hour == 10
 
         # Verify using proper timezone
         utc_time = datetime.fromtimestamp(utc_timestamp_ms / 1000, tz=timezone.utc)
@@ -359,8 +360,8 @@ class TestBaleBreakerParser:
         expected_pacific = utc_time.astimezone(pacific_tz)
 
         # Event times should match proper timezone conversion
-        assert event.date.hour == expected_pacific.hour
-        assert event.date.minute == expected_pacific.minute
+        assert event.datetime_start.hour == expected_pacific.hour
+        assert event.datetime_start.minute == expected_pacific.minute
 
     def test_timezone_handles_dst_transition(self, parser: BaleBreakerParser) -> None:
         """Test timezone conversion around DST transitions."""
@@ -383,5 +384,5 @@ class TestBaleBreakerParser:
         expected_pacific = utc_time.astimezone(pacific_tz)
 
         # Event should use the correct offset for that specific date
-        assert event.date.hour == expected_pacific.hour
-        assert event.date.day == expected_pacific.day
+        assert event.datetime_start.hour == expected_pacific.hour
+        assert event.datetime_start.day == expected_pacific.day

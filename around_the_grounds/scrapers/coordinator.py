@@ -77,7 +77,7 @@ class ScraperCoordinator:
                     )
                     self.errors.append(error)
                     self.logger.error(
-                        f"Unexpected error scraping {breweries[i].name}: {result}"
+                        f"Unexpected error scraping {venues[i].name}: {result}"
                     )
                     continue
 

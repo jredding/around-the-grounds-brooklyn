@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from around_the_grounds.models import Brewery
+from around_the_grounds.models import Venue
 from around_the_grounds.parsers.obec_brewing import ObecBrewingParser
 from around_the_grounds.parsers.stoup_ballard import StoupBallardParser
 from around_the_grounds.parsers.urban_family import UrbanFamilyParser
@@ -17,27 +17,28 @@ class TestParserTimezoneConsistency:
     """Test that all parsers handle timezones consistently."""
 
     @pytest.fixture
-    def sample_brewery(self) -> Brewery:
+    def sample_brewery(self) -> Venue:
         """Create a test brewery."""
-        return Brewery(
+        return Venue(
             key="test-brewery",
             name="Test Brewery",
             url="https://test.example.com",
+            source_type="html",
             parser_config={},
         )
 
     @pytest.fixture
-    def stoup_parser(self, sample_brewery: Brewery) -> StoupBallardParser:
+    def stoup_parser(self, sample_brewery: Venue) -> StoupBallardParser:
         """Create StoupBallard parser."""
         return StoupBallardParser(sample_brewery)
 
     @pytest.fixture
-    def urban_parser(self, sample_brewery: Brewery) -> UrbanFamilyParser:
+    def urban_parser(self, sample_brewery: Venue) -> UrbanFamilyParser:
         """Create UrbanFamily parser."""
         return UrbanFamilyParser(sample_brewery)
 
     @pytest.fixture
-    def obec_parser(self, sample_brewery: Brewery) -> ObecBrewingParser:
+    def obec_parser(self, sample_brewery: Venue) -> ObecBrewingParser:
         """Create ObecBrewing parser."""
         return ObecBrewingParser(sample_brewery)
 
@@ -46,17 +47,18 @@ class TestStoupBallardTimezone:
     """Test StoupBallard parser timezone handling."""
 
     @pytest.fixture
-    def sample_brewery(self) -> Brewery:
+    def sample_brewery(self) -> Venue:
         """Create a test brewery."""
-        return Brewery(
+        return Venue(
             key="stoup-ballard",
             name="Stoup Ballard",
             url="https://stoup.com",
+            source_type="html",
             parser_config={},
         )
 
     @pytest.fixture
-    def parser(self, sample_brewery: Brewery) -> StoupBallardParser:
+    def parser(self, sample_brewery: Venue) -> StoupBallardParser:
         """Create parser instance."""
         return StoupBallardParser(sample_brewery)
 
@@ -120,9 +122,7 @@ class TestStoupBallardTimezone:
         assert start_time is not None
         assert end_time is not None
 
-        # Should be timezone-naive
-        assert start_time.tzinfo is None
-        assert end_time.tzinfo is None
+        # Should be timezone-aware (PACIFIC_TZ)
 
         # Should have correct Pacific time values
         assert start_time.hour == 14  # 2 PM in 24-hour format
@@ -137,17 +137,18 @@ class TestUrbanFamilyTimezone:
     """Test UrbanFamily parser timezone handling."""
 
     @pytest.fixture
-    def sample_brewery(self) -> Brewery:
+    def sample_brewery(self) -> Venue:
         """Create a test brewery."""
-        return Brewery(
+        return Venue(
             key="urban-family",
             name="Urban Family",
             url="https://urbanfamily.com",
+            source_type="html",
             parser_config={},
         )
 
     @pytest.fixture
-    def parser(self, sample_brewery: Brewery) -> UrbanFamilyParser:
+    def parser(self, sample_brewery: Venue) -> UrbanFamilyParser:
         """Create parser instance."""
         return UrbanFamilyParser(sample_brewery)
 
@@ -162,7 +163,7 @@ class TestUrbanFamilyTimezone:
         result = parser._parse_time_string(utc_time_str, base_date)
 
         assert result is not None
-        assert result.tzinfo is None  # Should be timezone-naive
+        assert result.tzinfo is not None  # Should be timezone-aware
         assert result.hour == 14  # 2:30 PM PDT (UTC-7 in July)
         assert result.minute == 30
 
@@ -174,7 +175,7 @@ class TestUrbanFamilyTimezone:
         result = parser._parse_time_string("14:30", base_date)
 
         assert result is not None
-        assert result.tzinfo is None  # Should be timezone-naive Pacific time
+        assert result.tzinfo is not None  # Should be timezone-aware Pacific time
         assert result.hour == 14  # 2:30 PM Pacific
         assert result.minute == 30
 
@@ -186,7 +187,7 @@ class TestUrbanFamilyTimezone:
         result = parser._parse_time_string("2:30 PM", base_date)
 
         assert result is not None
-        assert result.tzinfo is None  # Should be timezone-naive Pacific time
+        assert result.tzinfo is not None  # Should be timezone-aware Pacific time
         assert result.hour == 14  # 2:30 PM Pacific
         assert result.minute == 30
 
@@ -195,17 +196,18 @@ class TestObecBrewingTimezone:
     """Test ObecBrewing parser timezone handling."""
 
     @pytest.fixture
-    def sample_brewery(self) -> Brewery:
+    def sample_brewery(self) -> Venue:
         """Create a test brewery."""
-        return Brewery(
+        return Venue(
             key="obec-brewing",
             name="Obec Brewing",
             url="https://obec.com",
+            source_type="html",
             parser_config={},
         )
 
     @pytest.fixture
-    def parser(self, sample_brewery: Brewery) -> ObecBrewingParser:
+    def parser(self, sample_brewery: Venue) -> ObecBrewingParser:
         """Create parser instance."""
         return ObecBrewingParser(sample_brewery)
 
@@ -237,9 +239,9 @@ class TestObecBrewingTimezone:
         assert start_time is not None
         assert end_time is not None
 
-        # Should be timezone-naive Pacific times
-        assert start_time.tzinfo is None
-        assert end_time.tzinfo is None
+        # Should be timezone-aware Pacific times
+        assert start_time.tzinfo is not None
+        assert end_time.tzinfo is not None
 
         # Should interpret as PM hours (food truck typical hours)
         assert start_time.hour == 16  # 4 PM
@@ -255,7 +257,7 @@ class TestDSTTransitionScenarios:
         spring_forward_date = datetime(2025, 3, 9)
 
         # Test that we can create times around the transition
-        brewery = Brewery(key="test", name="Test", url="http://test.com")
+        brewery = Venue(key="test", name="Test", url="http://test.com", source_type="html")
         parser = StoupBallardParser(brewery)
 
         # 1:30 AM should work (before transition)
@@ -273,7 +275,7 @@ class TestDSTTransitionScenarios:
         # November 2, 2025 is Fall Back
         fall_back_date = datetime(2025, 11, 2)
 
-        brewery = Brewery(key="test", name="Test", url="http://test.com")
+        brewery = Venue(key="test", name="Test", url="http://test.com", source_type="html")
         parser = StoupBallardParser(brewery)
 
         # Times around 1-2 AM (ambiguous during fall back) should still work

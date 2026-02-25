@@ -1,6 +1,11 @@
 """Tests for Urban Family parser."""
 
 from datetime import datetime
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
+PACIFIC_TZ = ZoneInfo("America/Los_Angeles")
 from typing import Any, Dict, List
 from unittest.mock import Mock, patch
 
@@ -8,7 +13,7 @@ import aiohttp
 import pytest
 from aioresponses import aioresponses
 
-from around_the_grounds.models import Brewery
+from around_the_grounds.models import Venue
 from around_the_grounds.parsers.urban_family import UrbanFamilyParser
 
 
@@ -16,12 +21,13 @@ class TestUrbanFamilyParser:
     """Test the UrbanFamilyParser class."""
 
     @pytest.fixture
-    def brewery(self) -> Brewery:
+    def brewery(self) -> Venue:
         """Create a test brewery for Urban Family."""
-        return Brewery(
+        return Venue(
             key="urban-family",
             name="Urban Family Brewing",
             url="https://app.hivey.io/urbanfamily/public-calendar",
+            source_type="html",
             parser_config={
                 "api_endpoint": "https://hivey-api-prod-pineapple.onrender.com/urbanfamily/public-calendar",
                 "api_type": "hivey_calendar",
@@ -29,7 +35,7 @@ class TestUrbanFamilyParser:
         )
 
     @pytest.fixture
-    def parser(self, brewery: Brewery) -> UrbanFamilyParser:
+    def parser(self, brewery: Venue) -> UrbanFamilyParser:
         """Create a parser instance."""
         return UrbanFamilyParser(brewery)
 
@@ -135,23 +141,23 @@ class TestUrbanFamilyParser:
 
         # Check first event (with explicit title)
         event1 = events[0]
-        assert event1.brewery_key == "urban-family"
-        assert event1.brewery_name == "Urban Family Brewing"
-        assert event1.food_truck_name == "Kaosamia Thai"
-        assert event1.date == datetime(2025, 7, 6)
-        assert event1.start_time == datetime(2025, 7, 6, 13, 0)
-        assert event1.end_time == datetime(2025, 7, 6, 19, 0)
+        assert event1.venue_key == "urban-family"
+        assert event1.venue_name == "Urban Family Brewing"
+        assert event1.title == "Kaosamia Thai"
+        assert event1.datetime_start.date() == datetime(2025, 7, 6).date()
+        assert event1.datetime_start == datetime(2025, 7, 6, 13, 0, tzinfo=PACIFIC_TZ)
+        assert event1.datetime_end == datetime(2025, 7, 6, 19, 0, tzinfo=PACIFIC_TZ)
 
         # Check second event (vendor ID mapping now provides correct name)
         event2 = events[1]
-        assert event2.brewery_key == "urban-family"
-        assert event2.brewery_name == "Urban Family Brewing"
+        assert event2.venue_key == "urban-family"
+        assert event2.venue_name == "Urban Family Brewing"
         assert (
-            event2.food_truck_name == "Tolu Modern Fijian Cuisine"
+            event2.title == "Tolu Modern Fijian Cuisine"
         )  # Mapped from vendor ID 67f6f44de4ca31e444ef637d (was incorrectly "Blk" from filename before)
-        assert event2.date == datetime(2025, 7, 7)
-        assert event2.start_time == datetime(2025, 7, 7, 16, 0)
-        assert event2.end_time == datetime(2025, 7, 7, 20, 0)
+        assert event2.datetime_start.date() == datetime(2025, 7, 7).date()
+        assert event2.datetime_start == datetime(2025, 7, 7, 16, 0, tzinfo=PACIFIC_TZ)
+        assert event2.datetime_end == datetime(2025, 7, 7, 20, 0, tzinfo=PACIFIC_TZ)
 
     @pytest.mark.asyncio
     async def test_parse_with_image_name_extraction(
@@ -173,8 +179,8 @@ class TestUrbanFamilyParser:
         assert len(events) == 2
 
         # Check name extraction from image filenames (improved logic removes "Logo")
-        assert events[0].food_truck_name == "Georgia Greek"
-        assert events[1].food_truck_name == "Woodshop Bbq"
+        assert events[0].title == "Georgia Greek"
+        assert events[1].title == "Woodshop Bbq"
 
     @pytest.mark.asyncio
     async def test_parse_empty_response(self, parser: UrbanFamilyParser) -> None:
@@ -312,15 +318,15 @@ class TestUrbanFamilyParser:
         assert len(events) == 2
 
         # Find the events by date
-        event_by_date = {event.date.day: event for event in events}
+        event_by_date = {event.datetime_start.day: event for event in events}
 
         # Event without valid name should get TBD
-        assert event_by_date[10].food_truck_name == "TBD"
-        assert event_by_date[10].date == datetime(2025, 7, 10)
+        assert event_by_date[10].title == "TBD"
+        assert event_by_date[10].datetime_start.date() == datetime(2025, 7, 10).date()
 
         # Event with valid name should keep it
-        assert event_by_date[11].food_truck_name == "Good Eats"
-        assert event_by_date[11].date == datetime(2025, 7, 11)
+        assert event_by_date[11].title == "Good Eats"
+        assert event_by_date[11].datetime_start.date() == datetime(2025, 7, 11).date()
 
     def test_extract_food_truck_name_from_title(
         self, parser: UrbanFamilyParser
@@ -390,21 +396,21 @@ class TestUrbanFamilyParser:
 
         # Standard 24-hour format
         assert parser._parse_time_string("13:00", test_date) == datetime(
-            2025, 7, 6, 13, 0
+            2025, 7, 6, 13, 0, tzinfo=PACIFIC_TZ
         )
         assert parser._parse_time_string("19:30", test_date) == datetime(
-            2025, 7, 6, 19, 30
+            2025, 7, 6, 19, 30, tzinfo=PACIFIC_TZ
         )
         assert parser._parse_time_string("09:15", test_date) == datetime(
-            2025, 7, 6, 9, 15
+            2025, 7, 6, 9, 15, tzinfo=PACIFIC_TZ
         )
 
         # Edge cases
         assert parser._parse_time_string("00:00", test_date) == datetime(
-            2025, 7, 6, 0, 0
+            2025, 7, 6, 0, 0, tzinfo=PACIFIC_TZ
         )
         assert parser._parse_time_string("23:59", test_date) == datetime(
-            2025, 7, 6, 23, 59
+            2025, 7, 6, 23, 59, tzinfo=PACIFIC_TZ
         )
 
     def test_parse_time_string_12_hour_format(self, parser: UrbanFamilyParser) -> None:
@@ -413,18 +419,18 @@ class TestUrbanFamilyParser:
 
         # PM times
         assert parser._parse_time_string("1:00 pm", test_date) == datetime(
-            2025, 7, 6, 13, 0
+            2025, 7, 6, 13, 0, tzinfo=PACIFIC_TZ
         )
         assert parser._parse_time_string("12:30 PM", test_date) == datetime(
-            2025, 7, 6, 12, 30
+            2025, 7, 6, 12, 30, tzinfo=PACIFIC_TZ
         )
 
         # AM times
         assert parser._parse_time_string("8:00 am", test_date) == datetime(
-            2025, 7, 6, 8, 0
+            2025, 7, 6, 8, 0, tzinfo=PACIFIC_TZ
         )
         assert parser._parse_time_string("12:00 AM", test_date) == datetime(
-            2025, 7, 6, 0, 0
+            2025, 7, 6, 0, 0, tzinfo=PACIFIC_TZ
         )
 
     def test_parse_time_string_invalid_formats(self, parser: UrbanFamilyParser) -> None:
@@ -448,8 +454,8 @@ class TestUrbanFamilyParser:
         }
 
         start_time, end_time = parser._extract_times(item, test_date)
-        assert start_time == datetime(2025, 7, 6, 13, 0)
-        assert end_time == datetime(2025, 7, 6, 19, 0)
+        assert start_time == datetime(2025, 7, 6, 13, 0, tzinfo=PACIFIC_TZ)
+        assert end_time == datetime(2025, 7, 6, 19, 0, tzinfo=PACIFIC_TZ)
 
     def test_extract_times_missing_data(self, parser: UrbanFamilyParser) -> None:
         """Test time extraction when data is missing."""
@@ -493,7 +499,7 @@ class TestUrbanFamilyParser:
 
         events = parser._parse_json_data(data)
         assert len(events) == 1
-        assert events[0].food_truck_name == "Test Truck"
+        assert events[0].title == "Test Truck"
 
     def test_parse_json_data_invalid_structure(self, parser: UrbanFamilyParser) -> None:
         """Test parsing invalid JSON data structure."""

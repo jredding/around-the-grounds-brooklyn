@@ -1,36 +1,70 @@
 """Pytest configuration and shared fixtures."""
 
 from datetime import datetime, timedelta
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict
 
 import aiohttp
 import pytest
 
-from around_the_grounds.models import Brewery, FoodTruckEvent
+from around_the_grounds.models import Venue, Event
+
+
+def make_aware(dt: datetime) -> datetime:
+    """Attach Pacific timezone to a naive datetime."""
+    return dt.replace(tzinfo=ZoneInfo("America/Los_Angeles"))
 
 
 @pytest.fixture
-def sample_brewery() -> Brewery:
-    """Sample brewery for testing."""
-    return Brewery(
+def sample_brewery() -> Venue:
+    """Alias for backward compatibility."""
+    return Venue(
         key="test-brewery",
         name="Test Brewery",
         url="https://example.com/food-trucks",
+        source_type="html",
         parser_config={"test": "config"},
     )
 
 
 @pytest.fixture
-def sample_food_truck_event() -> FoodTruckEvent:
-    """Sample food truck event for testing."""
-    return FoodTruckEvent(
-        brewery_key="test-brewery",
-        brewery_name="Test Brewery",
-        food_truck_name="Test Food Truck",
-        date=datetime.now() + timedelta(days=1),
-        start_time=datetime.now() + timedelta(days=1, hours=12),
-        end_time=datetime.now() + timedelta(days=1, hours=20),
+def sample_venue() -> Venue:
+    """Sample venue for testing."""
+    return Venue(
+        key="test-brewery",
+        name="Test Brewery",
+        url="https://example.com/food-trucks",
+        source_type="html",
+        parser_config={"test": "config"},
+    )
+
+
+@pytest.fixture
+def sample_food_truck_event() -> Event:
+    """Sample event for testing (legacy name for backward compatibility)."""
+    return Event(
+        venue_key="test-brewery",
+        venue_name="Test Brewery",
+        title="Test Food Truck",
+        datetime_start=make_aware(datetime.now() + timedelta(days=1)),
+        datetime_end=make_aware(datetime.now() + timedelta(days=1, hours=8)),
+        description="Test event description",
+    )
+
+
+@pytest.fixture
+def sample_event() -> Event:
+    """Sample event for testing."""
+    return Event(
+        venue_key="test-brewery",
+        venue_name="Test Brewery",
+        title="Test Food Truck",
+        datetime_start=make_aware(datetime.now() + timedelta(days=1)),
+        datetime_end=make_aware(datetime.now() + timedelta(days=1, hours=8)),
         description="Test event description",
     )
 
