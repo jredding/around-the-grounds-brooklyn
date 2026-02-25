@@ -16,9 +16,9 @@ from temporalio import activity
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from around_the_grounds.config.loader import load_venue_list as _load_venue_list
 from around_the_grounds.main import (
     generate_web_data,
-    load_brewery_config,
 )
 from around_the_grounds.models import Brewery, FoodTruckEvent
 from around_the_grounds.scrapers import ScraperCoordinator
@@ -58,11 +58,19 @@ class ScrapeActivities:
         return "Activity connectivity test successful"
 
     @activity.defn
-    async def load_brewery_config(
+    async def load_venue_list(
         self, config_path: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Load brewery configuration and return as serializable data."""
-        breweries = load_brewery_config(config_path)
+        """Load venue configuration and return as serializable data."""
+        from pathlib import Path as _Path
+
+        if config_path is None:
+            default_config = (
+                _Path(__file__).parent.parent / "config" / "breweries.json"
+            )
+            venue_list = _load_venue_list(default_config)
+        else:
+            venue_list = _load_venue_list(config_path)
         return [
             {
                 "key": b.key,
@@ -70,7 +78,7 @@ class ScrapeActivities:
                 "url": b.url,
                 "parser_config": b.parser_config,
             }
-            for b in breweries
+            for b in venue_list.venues
         ]
 
     @activity.defn
@@ -184,6 +192,8 @@ class DeploymentActivities:
         # Extract parameters
         web_data = params["web_data"]
         repository_url = params["repository_url"]
+        target_branch = params.get("target_branch", "main")
+        template_dir = params.get("template_dir")
 
         try:
             activity.logger.info(
@@ -218,8 +228,11 @@ class DeploymentActivities:
                     capture_output=True,
                 )
 
-                # Copy template files from public_template to cloned repo
-                public_template_dir = Path.cwd() / "public_template"
+                # Copy template files from public_template (or custom template_dir) to cloned repo
+                if template_dir:
+                    public_template_dir = Path(template_dir)
+                else:
+                    public_template_dir = Path.cwd() / "public_template"
                 target_public_dir = repo_dir / "public"
 
                 activity.logger.info(
@@ -275,9 +288,9 @@ class DeploymentActivities:
                     capture_output=True,
                 )
 
-                # Push to origin
+                # Push to target branch
                 subprocess.run(
-                    ["git", "push", "origin", "main"],
+                    ["git", "push", "origin", target_branch],
                     cwd=repo_dir,
                     check=True,
                     capture_output=True,

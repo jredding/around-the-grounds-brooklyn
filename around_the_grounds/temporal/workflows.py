@@ -22,10 +22,10 @@ class FoodTruckWorkflow:
         deploy_activities = DeploymentActivities()
 
         try:
-            # Step 1: Load brewery configuration
+            # Step 1: Load venue configuration
             brewery_configs = await workflow.execute_activity(
-                scrape_activities.load_brewery_config,
-                params.config_path,
+                scrape_activities.load_venue_list,
+                params.venues_config,
                 schedule_to_close_timeout=timedelta(seconds=30),
             )
 
@@ -85,7 +85,7 @@ class FoodTruckWorkflow:
 
                 deployed = await workflow.execute_activity(
                     deploy_activities.deploy_to_git,
-                    {"web_data": web_data, "repository_url": params.git_repository_url},
+                    {"web_data": web_data, "repository_url": ""},
                     schedule_to_close_timeout=timedelta(minutes=2),
                 )
 

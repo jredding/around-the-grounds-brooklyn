@@ -79,7 +79,7 @@ class ScheduleManager:
 
         try:
             # Create workflow parameters
-            params = WorkflowParams(config_path=config_path, deploy=deploy)
+            params = WorkflowParams(venues_config=config_path, deploy=deploy)
 
             # Default note if not provided
             if not note:

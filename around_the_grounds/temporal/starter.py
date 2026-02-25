@@ -9,7 +9,6 @@ from typing import Optional
 
 from temporalio.client import Client
 
-from around_the_grounds.config.settings import get_git_repository_url
 from around_the_grounds.temporal.config import (
     TEMPORAL_TASK_QUEUE,
     get_temporal_client,
@@ -53,10 +52,9 @@ class FoodTruckStarter:
 
     async def run_workflow(
         self,
-        config_path: Optional[str] = None,
+        venues_config: Optional[str] = None,
         deploy: bool = False,
         workflow_id: Optional[str] = None,
-        git_repository_url: Optional[str] = None,
     ) -> WorkflowResult:
         """Execute the food truck workflow."""
         if not self.client:
@@ -70,18 +68,13 @@ class FoodTruckStarter:
 
         try:
             logger.info(f"🚀 Starting workflow: {workflow_id}")
-            logger.info(f"📂 Config path: {config_path or 'default'}")
+            logger.info(f"📂 Venues config: {venues_config or 'default'}")
             logger.info(f"🚀 Deploy: {deploy}")
-
-            # Get repository URL with fallback chain
-            repository_url = get_git_repository_url(git_repository_url)
-            logger.info(f"📍 Repository: {repository_url}")
 
             # Create workflow parameters
             params = WorkflowParams(
-                config_path=config_path,
+                venues_config=venues_config,
                 deploy=deploy,
-                git_repository_url=repository_url,
             )
 
             handle = await self.client.start_workflow(
@@ -108,16 +101,15 @@ async def main() -> None:
     """Main starter entry point with enhanced CLI arguments."""
     parser = argparse.ArgumentParser(description="Execute Food Truck Temporal Workflow")
     parser.add_argument(
-        "--config", "-c", help="Path to brewery configuration JSON file"
+        "venues_config",
+        nargs="?",
+        default=None,
+        help="Path to venues configuration JSON file",
     )
     parser.add_argument(
         "--deploy", "-d", action="store_true", help="Deploy results to web"
     )
     parser.add_argument("--workflow-id", help="Custom workflow ID")
-    parser.add_argument(
-        "--git-repo",
-        help="Git repository URL for deployment (default: ballard-food-trucks)",
-    )
     parser.add_argument(
         "--temporal-address",
         default="localhost:7233",
@@ -144,10 +136,9 @@ async def main() -> None:
 
     try:
         result = await starter.run_workflow(
-            config_path=args.config,
+            venues_config=args.venues_config,
             deploy=args.deploy,
             workflow_id=args.workflow_id,
-            git_repository_url=args.git_repo,
         )
 
         if result.success:

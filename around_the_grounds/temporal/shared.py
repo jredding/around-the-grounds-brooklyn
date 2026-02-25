@@ -3,16 +3,13 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
-from ..config.settings import DEFAULT_GIT_REPOSITORY
-
 
 @dataclass
 class WorkflowParams:
     """Parameters for the food truck workflow."""
 
-    config_path: Optional[str] = None
+    venues_config: Optional[str] = None
     deploy: bool = False
-    git_repository_url: str = DEFAULT_GIT_REPOSITORY
     max_parallel_scrapes: int = 10
 
 

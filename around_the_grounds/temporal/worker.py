@@ -49,7 +49,7 @@ async def main() -> None:
                 workflows=[FoodTruckWorkflow],
                 activities=[
                     scrape_activities.test_connectivity,
-                    scrape_activities.load_brewery_config,
+                    scrape_activities.load_venue_list,
                     scrape_activities.scrape_single_brewery,
                     scrape_activities.scrape_food_trucks,
                     deploy_activities.generate_web_data,
