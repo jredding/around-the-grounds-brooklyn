@@ -4,8 +4,9 @@ from typing import Any, List, Optional
 
 import aiohttp
 
-from ..models import FoodTruckEvent
+from ..models import Event
 from ..utils.timezone_utils import (
+    PACIFIC_TZ,
     get_pacific_month,
     get_pacific_year,
     parse_date_with_pacific_context,
@@ -14,9 +15,9 @@ from .base import BaseParser
 
 
 class StoupBallardParser(BaseParser):
-    async def parse(self, session: aiohttp.ClientSession) -> List[FoodTruckEvent]:
+    async def parse(self, session: aiohttp.ClientSession) -> List[Event]:
         try:
-            soup = await self.fetch_page(session, self.brewery.url)
+            soup = await self.fetch_page(session, self.venue.url)
             events = []
 
             if not soup:
@@ -57,7 +58,7 @@ class StoupBallardParser(BaseParser):
             self.logger.error(f"Error parsing Stoup Ballard: {str(e)}")
             raise ValueError(f"Failed to parse Stoup Ballard website: {str(e)}")
 
-    def _extract_from_section(self, section: Any) -> List[FoodTruckEvent]:
+    def _extract_from_section(self, section: Any) -> List[Event]:
         events = []
         text = section.get_text()
 
@@ -97,20 +98,19 @@ class StoupBallardParser(BaseParser):
                     for word in ["schedule", "food truck", "ballard"]
                 ):
                     start_time, end_time = self._parse_time(current_date, current_time)
-                    event = FoodTruckEvent(
-                        brewery_key=self.brewery.key,
-                        brewery_name=self.brewery.name,
-                        food_truck_name=line,
-                        date=current_date,
-                        start_time=start_time,
-                        end_time=end_time,
-                        ai_generated_name=False,
+                    event = Event(
+                        venue_key=self.venue.key,
+                        venue_name=self.venue.name,
+                        title=line,
+                        datetime_start=start_time.replace(tzinfo=PACIFIC_TZ) if start_time is not None and start_time.tzinfo is None else (start_time if start_time is not None else current_date.replace(tzinfo=PACIFIC_TZ)),
+                        datetime_end=end_time.replace(tzinfo=PACIFIC_TZ) if end_time is not None and end_time.tzinfo is None else end_time,
+                        extraction_method="html",
                     )
                     events.append(event)
 
         return events
 
-    def _parse_entry(self, entry: Any) -> Optional[FoodTruckEvent]:
+    def _parse_entry(self, entry: Any) -> Optional[Event]:
         # Look for the lunch-truck-info div (new format)
         info_div = entry.find("div", class_="lunch-truck-info")
         if info_div:
@@ -120,7 +120,7 @@ class StoupBallardParser(BaseParser):
 
     def _parse_new_format_entry(
         self, entry: Any, info_div: Any
-    ) -> Optional[FoodTruckEvent]:
+    ) -> Optional[Event]:
         # Extract date
         date_elem = info_div.find("h4")
         if not date_elem:
@@ -155,17 +155,17 @@ class StoupBallardParser(BaseParser):
             else:
                 truck_name = "Unknown"
 
-        return FoodTruckEvent(
-            brewery_key=self.brewery.key,
-            brewery_name=self.brewery.name,
-            food_truck_name=truck_name,
-            date=date,
-            start_time=start_time,
-            end_time=end_time,
-            ai_generated_name=False,
+        ds = start_time if start_time is not None else date
+        return Event(
+            venue_key=self.venue.key,
+            venue_name=self.venue.name,
+            title=truck_name,
+            datetime_start=ds.replace(tzinfo=PACIFIC_TZ) if ds.tzinfo is None else ds,
+            datetime_end=end_time.replace(tzinfo=PACIFIC_TZ) if end_time is not None and end_time.tzinfo is None else end_time,
+            extraction_method="html",
         )
 
-    def _parse_old_format_entry(self, entry: Any) -> Optional[FoodTruckEvent]:
+    def _parse_old_format_entry(self, entry: Any) -> Optional[Event]:
         # Extract date
         date_elem = entry.find("h4")
         if not date_elem:
@@ -187,14 +187,14 @@ class StoupBallardParser(BaseParser):
             truck_name_elem[-1].get_text().strip() if truck_name_elem else "Unknown"
         )
 
-        return FoodTruckEvent(
-            brewery_key=self.brewery.key,
-            brewery_name=self.brewery.name,
-            food_truck_name=truck_name,
-            date=date,
-            start_time=start_time,
-            end_time=end_time,
-            ai_generated_name=False,
+        ds = start_time if start_time is not None else date
+        return Event(
+            venue_key=self.venue.key,
+            venue_name=self.venue.name,
+            title=truck_name,
+            datetime_start=ds.replace(tzinfo=PACIFIC_TZ) if ds.tzinfo is None else ds,
+            datetime_end=end_time.replace(tzinfo=PACIFIC_TZ) if end_time is not None and end_time.tzinfo is None else end_time,
+            extraction_method="html",
         )
 
     def _parse_date(self, date_str: str) -> Optional[datetime]:

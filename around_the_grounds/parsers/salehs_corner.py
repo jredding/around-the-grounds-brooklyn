@@ -4,8 +4,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import aiohttp
 
-from ..models import Brewery, FoodTruckEvent
-from ..utils.timezone_utils import now_in_pacific_naive, utc_to_pacific_naive
+from ..models import Venue, Event
+from ..utils.timezone_utils import now_in_pacific, utc_to_pacific_aware
 from .base import BaseParser
 
 
@@ -21,10 +21,10 @@ class SalehsCornerParser(BaseParser):
     BASE_URL = "https://www.seattlefoodtruck.com/api/events"
     LOCATION_ID = 164  # Saleh's Corner location ID
 
-    def __init__(self, brewery: Brewery) -> None:
-        super().__init__(brewery)
+    def __init__(self, venue: Venue) -> None:
+        super().__init__(venue)
 
-    async def parse(self, session: aiohttp.ClientSession) -> List[FoodTruckEvent]:
+    async def parse(self, session: aiohttp.ClientSession) -> List[Event]:
         """
         Parse food truck events from Saleh's Corner API.
 
@@ -106,7 +106,7 @@ class SalehsCornerParser(BaseParser):
             Tuple of (start_date_str, end_date_str) in M-D-YY format
         """
         # Use Pacific timezone for date calculations
-        today = now_in_pacific_naive()
+        today = now_in_pacific()
         end_date = today + timedelta(days=days_ahead)
 
         # Format for API (M-D-YY)
@@ -115,7 +115,7 @@ class SalehsCornerParser(BaseParser):
 
         return start_str, end_str
 
-    def _parse_api_events(self, api_data: Dict[str, Any]) -> List[FoodTruckEvent]:
+    def _parse_api_events(self, api_data: Dict[str, Any]) -> List[Event]:
         """
         Parse events from API JSON response.
 
@@ -123,7 +123,7 @@ class SalehsCornerParser(BaseParser):
             api_data: JSON response from the API
 
         Returns:
-            List of FoodTruckEvent objects
+            List of Event objects
         """
         events = []
 
@@ -146,7 +146,7 @@ class SalehsCornerParser(BaseParser):
 
     def _parse_single_event(
         self, event_data: Dict[str, Any]
-    ) -> Optional[FoodTruckEvent]:
+    ) -> Optional[Event]:
         """
         Parse a single event from the API response.
 
@@ -154,7 +154,7 @@ class SalehsCornerParser(BaseParser):
             event_data: Single event object from API response
 
         Returns:
-            FoodTruckEvent object or None if event is invalid
+            Event object or None if event is invalid
         """
         try:
             # Skip events without bookings
@@ -200,15 +200,14 @@ class SalehsCornerParser(BaseParser):
             if food_categories:
                 description = f"Cuisine: {', '.join(food_categories)}"
 
-            return FoodTruckEvent(
-                brewery_key=self.brewery.key,
-                brewery_name=self.brewery.name,
-                food_truck_name=vendor_name,
-                date=start_time_dt,
-                start_time=start_time_dt,
-                end_time=end_time_dt,
+            return Event(
+                venue_key=self.venue.key,
+                venue_name=self.venue.name,
+                title=vendor_name,
+                datetime_start=start_time_dt,
+                datetime_end=end_time_dt,
                 description=description,
-                ai_generated_name=False,  # Names are provided directly by API
+                extraction_method="api",  # Names are provided directly by API
             )
 
         except Exception as e:
@@ -271,7 +270,7 @@ class SalehsCornerParser(BaseParser):
 
             # Validate times are not too far in the past
             if start_time:
-                now = now_in_pacific_naive()
+                now = now_in_pacific()
                 if start_time.date() < (now.date() - timedelta(days=1)):
                     self.logger.debug(f"Skipping past event: {start_time}")
                     return None, None
@@ -298,7 +297,7 @@ class SalehsCornerParser(BaseParser):
 
             # Convert to Pacific timezone and make naive for compatibility
             if dt.tzinfo is not None:
-                return utc_to_pacific_naive(
+                return utc_to_pacific_aware(
                     dt.astimezone(tz=None)
                 )  # Convert to UTC first, then to Pacific
             else:

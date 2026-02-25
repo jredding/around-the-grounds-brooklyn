@@ -12,8 +12,9 @@ from typing import List, Optional
 
 import aiohttp
 
-from ..models import FoodTruckEvent
+from ..models import Event
 from ..utils.timezone_utils import (
+    PACIFIC_TZ,
     get_pacific_month,
     get_pacific_year,
     parse_date_with_pacific_context,
@@ -40,10 +41,10 @@ class ChucksGreenwoodParser(BaseParser):
         "Dec": 12,
     }
 
-    async def parse(self, session: aiohttp.ClientSession) -> List[FoodTruckEvent]:
+    async def parse(self, session: aiohttp.ClientSession) -> List[Event]:
         """Parse food truck events from Google Sheets CSV."""
         try:
-            csv_data = await self._fetch_csv(session, self.brewery.url)
+            csv_data = await self._fetch_csv(session, self.venue.url)
             if not csv_data:
                 raise ValueError("Failed to fetch CSV data")
 
@@ -77,7 +78,7 @@ class ChucksGreenwoodParser(BaseParser):
             return valid_events
 
         except Exception as e:
-            self.logger.error(f"Error parsing {self.brewery.name}: {str(e)}")
+            self.logger.error(f"Error parsing {self.venue.name}: {str(e)}")
             raise ValueError(f"Failed to parse CSV data: {str(e)}")
 
     async def _fetch_csv(
@@ -116,8 +117,8 @@ class ChucksGreenwoodParser(BaseParser):
                 raise  # Re-raise our custom ValueError messages
             raise ValueError(f"Failed to fetch CSV from {url}: {str(e)}")
 
-    def _parse_csv_row(self, row: List[str]) -> Optional[FoodTruckEvent]:
-        """Parse a single CSV row into a FoodTruckEvent."""
+    def _parse_csv_row(self, row: List[str]) -> Optional[Event]:
+        """Parse a single CSV row into an Event."""
         # Actual CSV structure (from real data):
         # Column A (0): Day of Week ("Fri", "Sat", "Sun")
         # Column B (1): Month+Date ("Aug 1", "Sep 15", "Oct 31")
@@ -164,15 +165,13 @@ class ChucksGreenwoodParser(BaseParser):
             )
             return None
 
-        return FoodTruckEvent(
-            brewery_key=self.brewery.key,
-            brewery_name=self.brewery.name,
-            food_truck_name=food_truck_name,
-            date=event_date,
-            start_time=None,  # Times are placeholder "12 AM" in the data
-            end_time=None,
+        return Event(
+            venue_key=self.venue.key,
+            venue_name=self.venue.name,
+            title=food_truck_name,
+            datetime_start=event_date.replace(tzinfo=PACIFIC_TZ),
             description=f"Original event: {event_name}",
-            ai_generated_name=False,
+            extraction_method="html",
         )
 
     def _extract_vendor_name(self, event_name: str) -> Optional[str]:

@@ -4,15 +4,15 @@ from typing import List, Optional, Tuple
 
 import aiohttp
 
-from ..models import FoodTruckEvent
-from ..utils.timezone_utils import now_in_pacific_naive
+from ..models import Event
+from ..utils.timezone_utils import now_in_pacific
 from .base import BaseParser
 
 
 class ObecBrewingParser(BaseParser):
-    async def parse(self, session: aiohttp.ClientSession) -> List[FoodTruckEvent]:
+    async def parse(self, session: aiohttp.ClientSession) -> List[Event]:
         try:
-            soup = await self.fetch_page(session, self.brewery.url)
+            soup = await self.fetch_page(session, self.venue.url)
             events = []
 
             if not soup:
@@ -23,7 +23,7 @@ class ObecBrewingParser(BaseParser):
 
             # Use the regex pattern from config to find food truck information
             # Pattern: "Food truck:\s*([^0-9]+)\s*([0-9:]+\s*-\s*[0-9:]+)"
-            parser_config = self.brewery.parser_config or {}
+            parser_config = self.venue.parser_config or {}
             pattern = parser_config.get(
                 "pattern", r"Food truck:\s*([^0-9]+)\s*([0-9:]+\s*-\s*[0-9:]+)"
             )
@@ -37,18 +37,17 @@ class ObecBrewingParser(BaseParser):
                 start_time, end_time = self._parse_time_range(time_range)
 
                 # Create event for today in Pacific timezone
-                today = now_in_pacific_naive().replace(
+                today = now_in_pacific().replace(
                     hour=0, minute=0, second=0, microsecond=0
                 )
 
-                event = FoodTruckEvent(
-                    brewery_key=self.brewery.key,
-                    brewery_name=self.brewery.name,
-                    food_truck_name=truck_name,
-                    date=today,
-                    start_time=start_time,
-                    end_time=end_time,
-                    ai_generated_name=False,
+                event = Event(
+                    venue_key=self.venue.key,
+                    venue_name=self.venue.name,
+                    title=truck_name,
+                    datetime_start=start_time if start_time is not None else today,
+                    datetime_end=end_time,
+                    extraction_method="html",
                 )
                 events.append(event)
 
@@ -80,7 +79,7 @@ class ObecBrewingParser(BaseParser):
             end_time = self._parse_single_time(end_str.strip())
 
             if start_time and end_time:
-                today = now_in_pacific_naive().replace(
+                today = now_in_pacific().replace(
                     hour=0, minute=0, second=0, microsecond=0
                 )
                 start_datetime = today.replace(hour=start_time[0], minute=start_time[1])

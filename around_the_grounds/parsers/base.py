@@ -5,16 +5,16 @@ from typing import List
 import aiohttp
 from bs4 import BeautifulSoup
 
-from ..models import Brewery, FoodTruckEvent
+from ..models import Venue, Event
 
 
 class BaseParser(ABC):
-    def __init__(self, brewery: Brewery):
-        self.brewery = brewery
+    def __init__(self, venue: Venue):
+        self.venue = venue
         self.logger = logging.getLogger(self.__class__.__name__)
 
     @abstractmethod
-    async def parse(self, session: aiohttp.ClientSession) -> List[FoodTruckEvent]:
+    async def parse(self, session: aiohttp.ClientSession) -> List[Event]:
         pass
 
     async def fetch_page(
@@ -55,25 +55,25 @@ class BaseParser(ABC):
                 raise  # Re-raise our custom ValueError messages
             raise ValueError(f"Failed to parse HTML from {url}: {str(e)}")
 
-    def validate_event(self, event: FoodTruckEvent) -> bool:
+    def validate_event(self, event: Event) -> bool:
         """
-        Validate a FoodTruckEvent has required fields.
+        Validate an Event has required fields.
         """
-        if not event.brewery_key or not event.brewery_name:
-            self.logger.warning(f"Event missing brewery info: {event}")
+        if not event.venue_key or not event.venue_name:
+            self.logger.warning(f"Event missing venue info: {event}")
             return False
 
-        if not event.food_truck_name or event.food_truck_name.strip() == "":
-            self.logger.warning(f"Event missing food truck name: {event}")
+        if not event.title or event.title.strip() == "":
+            self.logger.warning(f"Event missing title: {event}")
             return False
 
-        if not event.date:
-            self.logger.warning(f"Event missing date: {event}")
+        if not event.datetime_start:
+            self.logger.warning(f"Event missing datetime_start: {event}")
             return False
 
         return True
 
-    def filter_valid_events(self, events: List[FoodTruckEvent]) -> List[FoodTruckEvent]:
+    def filter_valid_events(self, events: List[Event]) -> List[Event]:
         """
         Filter events to only include valid ones.
         """

@@ -6,7 +6,7 @@ all parsers handle Pacific timezone (America/Los_Angeles) consistently, includin
 proper PST/PDT transitions.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 try:
@@ -79,6 +79,14 @@ def utc_to_pacific_naive(utc_dt: datetime) -> datetime:
 
     # Return as timezone-naive for compatibility
     return pacific_dt.replace(tzinfo=None)
+
+
+def utc_to_pacific_aware(utc_dt: datetime) -> datetime:
+    """Convert UTC datetime to Pacific timezone-aware datetime."""
+    pacific_tz = ZoneInfo("America/Los_Angeles")
+    if utc_dt.tzinfo is None:
+        utc_dt = utc_dt.replace(tzinfo=timezone.utc)
+    return utc_dt.astimezone(pacific_tz)
 
 
 def parse_date_with_pacific_context(

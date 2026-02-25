@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import aiohttp
 
-from ..models import Brewery, FoodTruckEvent
+from ..models import Venue, Event
 from ..utils.date_utils import DateUtils
 from ..utils.timezone_utils import PACIFIC_TZ
 from ..utils.vision_analyzer import VisionAnalyzer
@@ -18,8 +18,8 @@ class UrbanFamilyParser(BaseParser):
     Uses direct JSON API access instead of HTML scraping.
     """
 
-    def __init__(self, brewery: Brewery) -> None:
-        super().__init__(brewery)
+    def __init__(self, venue: Venue) -> None:
+        super().__init__(venue)
         self._vision_analyzer: Optional[VisionAnalyzer] = None
         self._vision_cache: Dict[
             str, Optional[str]
@@ -32,7 +32,7 @@ class UrbanFamilyParser(BaseParser):
             self._vision_analyzer = VisionAnalyzer()
         return self._vision_analyzer
 
-    async def parse(self, session: aiohttp.ClientSession) -> List[FoodTruckEvent]:
+    async def parse(self, session: aiohttp.ClientSession) -> List[Event]:
         try:
             # Use the API endpoint instead of the public calendar page
             api_url = "https://hivey-api-prod-pineapple.onrender.com/urbanfamily/public-calendar"
@@ -90,9 +90,9 @@ class UrbanFamilyParser(BaseParser):
                 raise  # Re-raise our custom ValueError messages
             raise ValueError(f"Failed to parse Urban Family API: {str(e)}")
 
-    def _parse_json_data(self, data: Any) -> List[FoodTruckEvent]:
+    def _parse_json_data(self, data: Any) -> List[Event]:
         """
-        Parse JSON data from the Urban Family API into FoodTruckEvent objects.
+        Parse JSON data from the Urban Family API into Event objects.
         """
         events = []
 
@@ -130,7 +130,7 @@ class UrbanFamilyParser(BaseParser):
 
         return events
 
-    def _parse_event_item(self, item: Dict[str, Any]) -> Optional[FoodTruckEvent]:
+    def _parse_event_item(self, item: Dict[str, Any]) -> Optional[Event]:
         """
         Parse a single event item from the JSON data.
         """
@@ -155,15 +155,15 @@ class UrbanFamilyParser(BaseParser):
             # Extract description if available
             description = self._extract_description(item)
 
-            return FoodTruckEvent(
-                brewery_key=self.brewery.key,
-                brewery_name=self.brewery.name,
-                food_truck_name=food_truck_name,
-                date=date,
-                start_time=start_time,
-                end_time=end_time,
+            ds = start_time if start_time is not None else date.replace(tzinfo=PACIFIC_TZ)
+            return Event(
+                venue_key=self.venue.key,
+                venue_name=self.venue.name,
+                title=food_truck_name,
+                datetime_start=ds,
+                datetime_end=end_time,
                 description=description,
-                ai_generated_name=ai_generated,
+                extraction_method="ai-vision" if ai_generated else "html",
             )
 
         except Exception as e:
@@ -557,10 +557,9 @@ class UrbanFamilyParser(BaseParser):
                 # Parse ISO format and convert to Pacific timezone
                 iso_dt = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
                 if iso_dt.tzinfo is not None:
-                    # Convert to Pacific timezone and make naive
-                    pacific_dt = iso_dt.astimezone(PACIFIC_TZ)
-                    return pacific_dt.replace(tzinfo=None)
-                return iso_dt
+                    # Convert to Pacific timezone (keep tz-aware)
+                    return iso_dt.astimezone(PACIFIC_TZ)
+                return iso_dt.replace(tzinfo=PACIFIC_TZ)
 
             # Handle Urban Family time format like "13:00", "19:00"
             import re
@@ -572,9 +571,10 @@ class UrbanFamilyParser(BaseParser):
 
                 # Validate hour and minute
                 if 0 <= hour <= 23 and 0 <= minute <= 59:
-                    # Create timezone-naive Pacific time
+                    # Create timezone-aware Pacific time
                     return date.replace(
-                        hour=hour, minute=minute, second=0, microsecond=0
+                        hour=hour, minute=minute, second=0, microsecond=0,
+                        tzinfo=PACIFIC_TZ,
                     )
 
             # Handle 12-hour format with AM/PM
@@ -591,9 +591,10 @@ class UrbanFamilyParser(BaseParser):
                     hour = 0
 
                 if 0 <= hour <= 23 and 0 <= minute <= 59:
-                    # Create timezone-naive Pacific time
+                    # Create timezone-aware Pacific time
                     return date.replace(
-                        hour=hour, minute=minute, second=0, microsecond=0
+                        hour=hour, minute=minute, second=0, microsecond=0,
+                        tzinfo=PACIFIC_TZ,
                     )
 
         except Exception as e:

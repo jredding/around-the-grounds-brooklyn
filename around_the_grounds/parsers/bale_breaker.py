@@ -9,17 +9,18 @@ try:
 except ImportError:
     from backports.zoneinfo import ZoneInfo  # type: ignore
 
-from ..models import FoodTruckEvent
+from ..models import Event
+from ..utils.timezone_utils import PACIFIC_TZ
 from .base import BaseParser
 
 
 class BaleBreakerParser(BaseParser):
-    async def parse(self, session: aiohttp.ClientSession) -> List[FoodTruckEvent]:
+    async def parse(self, session: aiohttp.ClientSession) -> List[Event]:
         collection_id = None
 
         try:
             # First, try to get the main page to find the collection ID
-            soup = await self.fetch_page(session, self.brewery.url)
+            soup = await self.fetch_page(session, self.venue.url)
             if soup:
                 collection_id = self._extract_collection_id(soup)
         except ValueError as e:
@@ -103,7 +104,7 @@ class BaleBreakerParser(BaseParser):
 
     async def _fetch_calendar_events(
         self, session: aiohttp.ClientSession, collection_id: str
-    ) -> List[FoodTruckEvent]:
+    ) -> List[Event]:
         """Fetch events from the Squarespace calendar API"""
         events = []
 
@@ -160,7 +161,7 @@ class BaleBreakerParser(BaseParser):
             self.logger.error(f"Traceback: {traceback.format_exc()}")
             return []
 
-    def _parse_api_event(self, event_data: dict) -> Optional[FoodTruckEvent]:
+    def _parse_api_event(self, event_data: dict) -> Optional[Event]:
         """Parse a single event from the Squarespace API response"""
         try:
             title = event_data.get("title", "").strip()
@@ -181,31 +182,24 @@ class BaleBreakerParser(BaseParser):
             )
             # Use proper Pacific timezone that handles PST/PDT automatically
             pacific_tz = ZoneInfo("America/Los_Angeles")
-            start_date_pacific = start_date_utc.astimezone(pacific_tz)
-            start_date = start_date_pacific.replace(
-                tzinfo=None
-            )  # Remove timezone info for compatibility
+            start_date = start_date_utc.astimezone(pacific_tz)
 
             end_date = None
             if end_timestamp:
                 end_date_utc = datetime.fromtimestamp(
                     end_timestamp / 1000, tz=timezone.utc
                 )
-                end_date_pacific = end_date_utc.astimezone(pacific_tz)
-                end_date = end_date_pacific.replace(
-                    tzinfo=None
-                )  # Remove timezone info for compatibility
+                end_date = end_date_utc.astimezone(pacific_tz)
 
             # Create event
-            event = FoodTruckEvent(
-                brewery_key=self.brewery.key,
-                brewery_name=self.brewery.name,
-                food_truck_name=title,
-                date=start_date,
-                start_time=start_date,
-                end_time=end_date,
+            event = Event(
+                venue_key=self.venue.key,
+                venue_name=self.venue.name,
+                title=title,
+                datetime_start=start_date,
+                datetime_end=end_date,
                 description=None,  # Don't show generic description to users
-                ai_generated_name=False,
+                extraction_method="html",
             )
 
             self.logger.debug(f"Parsed event: {title} on {start_date}")
@@ -215,14 +209,14 @@ class BaleBreakerParser(BaseParser):
             self.logger.error(f"Error parsing API event: {str(e)}")
             return None
 
-    def _create_fallback_event(self) -> List[FoodTruckEvent]:
+    def _create_fallback_event(self) -> List[Event]:
         """Create a fallback event when API parsing fails"""
-        placeholder_event = FoodTruckEvent(
-            brewery_key=self.brewery.key,
-            brewery_name=self.brewery.name,
-            food_truck_name="Check Instagram @BaleBreaker",
-            date=datetime.now(),
+        placeholder_event = Event(
+            venue_key=self.venue.key,
+            venue_name=self.venue.name,
+            title="Check Instagram @BaleBreaker",
+            datetime_start=datetime.now(PACIFIC_TZ),
             description="Food truck schedule not available - check Instagram or website directly",
-            ai_generated_name=False,
+            extraction_method="html",
         )
         return [placeholder_event]
