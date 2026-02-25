@@ -10,7 +10,7 @@ from typing import List, Optional, Union
 
 import anthropic
 
-from ..models import FoodTruckEvent
+from ..models import Event
 
 
 DEFAULT_PROMPT_PATH = (
@@ -74,7 +74,7 @@ class HaikuGenerator:
         )
 
     async def generate_haiku(
-        self, date: datetime, events: List[FoodTruckEvent], max_retries: int = 2
+        self, date: datetime, events: List[Event], max_retries: int = 2
     ) -> Optional[str]:
         """
         Generate a haiku based on today's food truck events.
@@ -122,7 +122,7 @@ class HaikuGenerator:
         return None
 
     async def _generate_haiku_internal(
-        self, date: datetime, events: List[FoodTruckEvent]
+        self, date: datetime, events: List[Event]
     ) -> Optional[str]:
         """Internal method to generate haiku using Claude API."""
         try:
@@ -131,8 +131,8 @@ class HaikuGenerator:
 
             # Randomly select ONE food truck/brewery combination for diversity
             selected_event = random.choice(events)
-            truck_name = selected_event.food_truck_name
-            brewery_name = selected_event.brewery_name
+            truck_name = selected_event.title
+            brewery_name = selected_event.venue_name
 
             self.logger.debug(
                 f"Selected truck for haiku: {truck_name} at {brewery_name}"
@@ -242,11 +242,11 @@ class HaikuGenerator:
         date_str: str,
         truck_name: str,
         brewery_name: str,
-        events: List[FoodTruckEvent],
+        events: List[Event],
     ) -> str:
         """Render the configured prompt template with context."""
         events_summary = "\n".join(
-            f"- {event.food_truck_name} at {event.brewery_name}" for event in events
+            f"- {event.title} at {event.venue_name}" for event in events
         )
 
         template = self.prompt_template

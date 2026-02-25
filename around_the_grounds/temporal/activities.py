@@ -20,7 +20,7 @@ from around_the_grounds.main import (
     generate_web_data,
     load_brewery_config,
 )
-from around_the_grounds.models import Brewery, FoodTruckEvent
+from around_the_grounds.models import Venue, Event
 from around_the_grounds.scrapers import ScraperCoordinator
 from around_the_grounds.scrapers.coordinator import ScrapingError
 
@@ -29,17 +29,16 @@ class ScrapeActivities:
     """Activities for scraping food truck data."""
 
     @staticmethod
-    def _serialize_event(event: FoodTruckEvent) -> Dict[str, Any]:
+    def _serialize_event(event: Event) -> Dict[str, Any]:
         """Convert an event to a JSON-serializable structure."""
         return {
-            "brewery_key": event.brewery_key,
-            "brewery_name": event.brewery_name,
-            "food_truck_name": event.food_truck_name,
-            "date": event.date.isoformat(),
-            "start_time": event.start_time.isoformat() if event.start_time else None,
-            "end_time": event.end_time.isoformat() if event.end_time else None,
+            "venue_key": event.venue_key,
+            "venue_name": event.venue_name,
+            "title": event.title,
+            "datetime_start": event.datetime_start.isoformat(),
+            "datetime_end": event.datetime_end.isoformat() if event.datetime_end else None,
             "description": event.description,
-            "ai_generated_name": event.ai_generated_name,
+            "extraction_method": event.extraction_method,
         }
 
     @staticmethod
@@ -47,7 +46,7 @@ class ScrapeActivities:
         if not error:
             return None
         return {
-            "brewery_name": error.brewery.name,
+            "venue_name": error.venue.name,
             "message": error.message,
             "user_message": error.to_user_message(),
         }
@@ -78,12 +77,13 @@ class ScrapeActivities:
         self, brewery_configs: List[Dict[str, Any]]
     ) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
         """Scrape food truck data from all breweries."""
-        # Convert dicts back to Brewery objects
+        # Convert dicts back to Venue objects
         breweries = [
-            Brewery(
+            Venue(
                 key=config["key"],
                 name=config["name"],
                 url=config["url"],
+                source_type="html",
                 parser_config=config["parser_config"],
             )
             for config in brewery_configs
@@ -109,10 +109,11 @@ class ScrapeActivities:
         self, brewery_config: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Scrape one brewery and return serialized events and optional error."""
-        brewery = Brewery(
+        brewery = Venue(
             key=brewery_config["key"],
             name=brewery_config["name"],
             url=brewery_config["url"],
+            source_type="html",
             parser_config=brewery_config["parser_config"],
         )
 
@@ -137,23 +138,18 @@ class DeploymentActivities:
         # Reconstruct events and use existing generate_web_data function
         reconstructed_events = []
         for event_data in events:
-            event = FoodTruckEvent(
-                brewery_key=event_data["brewery_key"],
-                brewery_name=event_data["brewery_name"],
-                food_truck_name=event_data["food_truck_name"],
-                date=datetime.fromisoformat(event_data["date"]),
-                start_time=(
-                    datetime.fromisoformat(event_data["start_time"])
-                    if event_data["start_time"]
-                    else None
-                ),
-                end_time=(
-                    datetime.fromisoformat(event_data["end_time"])
-                    if event_data["end_time"]
+            event = Event(
+                venue_key=event_data["venue_key"],
+                venue_name=event_data["venue_name"],
+                title=event_data["title"],
+                datetime_start=datetime.fromisoformat(event_data["datetime_start"]),
+                datetime_end=(
+                    datetime.fromisoformat(event_data["datetime_end"])
+                    if event_data["datetime_end"]
                     else None
                 ),
                 description=event_data["description"],
-                ai_generated_name=event_data["ai_generated_name"],
+                extraction_method=event_data["extraction_method"],
             )
             reconstructed_events.append(event)
 
@@ -163,9 +159,9 @@ class DeploymentActivities:
                 if isinstance(error, dict):
                     if "user_message" in error and error["user_message"]:
                         error_messages.append(str(error["user_message"]))
-                    elif "brewery_name" in error and error["brewery_name"]:
+                    elif "venue_name" in error and error["venue_name"]:
                         error_messages.append(
-                            f"Failed to fetch information for brewery: {error['brewery_name']}"
+                            f"Failed to fetch information for venue: {error['venue_name']}"
                         )
                 elif isinstance(error, str) and error:
                     error_messages.append(error)

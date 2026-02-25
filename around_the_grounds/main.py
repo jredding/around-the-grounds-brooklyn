@@ -20,13 +20,13 @@ except ImportError:
     pass
 
 from .config.settings import get_git_repository_url
-from .models import Brewery, FoodTruckEvent
+from .models import Venue, Event
 from .scrapers.coordinator import ScraperCoordinator, ScrapingError
 from .utils.haiku_generator import HaikuGenerator
 from .utils.timezone_utils import format_time_with_timezone
 
 
-def load_brewery_config(config_path: Optional[str] = None) -> List[Brewery]:
+def load_brewery_config(config_path: Optional[str] = None) -> List[Venue]:
     """Load brewery configuration from JSON file."""
     if config_path is None:
         config_path_obj = Path(__file__).parent / "config" / "breweries.json"
@@ -41,19 +41,20 @@ def load_brewery_config(config_path: Optional[str] = None) -> List[Brewery]:
 
     breweries = []
     for brewery_data in config.get("breweries", []):
-        brewery = Brewery(
+        venue = Venue(
             key=brewery_data["key"],
             name=brewery_data["name"],
             url=brewery_data["url"],
+            source_type="html",
             parser_config=brewery_data.get("parser_config", {}),
         )
-        breweries.append(brewery)
+        breweries.append(venue)
 
     return breweries
 
 
 def format_events_output(
-    events: List[FoodTruckEvent], errors: Optional[List[ScrapingError]] = None
+    events: List[Event], errors: Optional[List[ScrapingError]] = None
 ) -> str:
     """Format events and errors for display."""
     output = []
@@ -65,7 +66,7 @@ def format_events_output(
 
         current_date = None
         for event in events:
-            event_date = event.date.strftime("%A, %B %d, %Y")
+            event_date = event.datetime_start.strftime("%A, %B %d, %Y")
 
             if current_date != event_date:
                 if current_date is not None:
@@ -74,29 +75,28 @@ def format_events_output(
                 current_date = event_date
 
             time_str = ""
-            if event.start_time:
-                time_str = f" {event.start_time.strftime('%I:%M %p')}"
-                if event.end_time:
-                    time_str += f" - {event.end_time.strftime('%I:%M %p')}"
+            time_str = f" {event.datetime_start.strftime('%I:%M %p')}"
+            if event.datetime_end:
+                time_str += f" - {event.datetime_end.strftime('%I:%M %p')}"
 
             # Check if this is an error event (fallback)
-            if "Check Instagram" in event.food_truck_name or "check Instagram" in (
+            if "Check Instagram" in event.title or "check Instagram" in (
                 event.description or ""
             ):
                 output.append(
-                    f"  ❌ {event.food_truck_name} @ {event.brewery_name}{time_str}"
+                    f"  ❌ {event.title} @ {event.venue_name}{time_str}"
                 )
                 if event.description:
                     output.append(f"     {event.description}")
             else:
                 # Add AI vision indicator for AI-generated names
-                if event.ai_generated_name:
+                if event.extraction_method == "ai-vision":
                     output.append(
-                        f"  🚚 {event.food_truck_name} 🖼️🤖 @ {event.brewery_name}{time_str}"
+                        f"  🚚 {event.title} 🖼️🤖 @ {event.venue_name}{time_str}"
                     )
                 else:
                     output.append(
-                        f"  🚚 {event.food_truck_name} @ {event.brewery_name}{time_str}"
+                        f"  🚚 {event.title} @ {event.venue_name}{time_str}"
                     )
                 if event.description:
                     output.append(f"     {event.description}")
@@ -124,17 +124,17 @@ def format_events_output(
     return "\n".join(output)
 
 
-async def _generate_haiku_for_today(events: List[FoodTruckEvent]) -> Optional[str]:
+async def _generate_haiku_for_today(events: List[Event]) -> Optional[str]:
     """Generate a haiku for today's food truck events."""
     try:
         # Get today's date in Pacific timezone
-        from .utils.timezone_utils import now_in_pacific_naive
+        from .utils.timezone_utils import now_in_pacific
 
-        today_pacific = now_in_pacific_naive()
+        today_pacific = now_in_pacific()
         today = today_pacific.date()
 
         # Filter events to only today's date
-        today_events = [event for event in events if event.date.date() == today]
+        today_events = [event for event in events if event.datetime_start.date() == today]
 
         if not today_events:
             logging.getLogger(__name__).debug("No events for today to generate haiku")
@@ -157,7 +157,7 @@ async def _generate_haiku_for_today(events: List[FoodTruckEvent]) -> Optional[st
 
 
 async def generate_web_data(
-    events: List[FoodTruckEvent], error_messages: Optional[List[str]] = None
+    events: List[Event], error_messages: Optional[List[str]] = None
 ) -> dict:
     """Generate web-friendly JSON data from events with Pacific timezone information."""
     web_events = []
@@ -165,29 +165,29 @@ async def generate_web_data(
     for event in events:
         # Convert event to web format with Pacific timezone indicators
         web_event = {
-            "date": event.date.isoformat(),
-            "vendor": event.food_truck_name,
-            "location": event.brewery_name,
+            "date": event.datetime_start.date().isoformat(),
+            "vendor": event.title,
+            "location": event.venue_name,
             # Format times with Pacific timezone indicators
             "start_time": (
-                format_time_with_timezone(event.start_time, include_timezone=True)
-                if event.start_time
+                format_time_with_timezone(event.datetime_start, include_timezone=True)
+                if event.datetime_start
                 else None
             ),
             "end_time": (
-                format_time_with_timezone(event.end_time, include_timezone=True)
-                if event.end_time
+                format_time_with_timezone(event.datetime_end, include_timezone=True)
+                if event.datetime_end
                 else None
             ),
             # Also include raw time strings without timezone for backward compatibility
             "start_time_raw": (
-                event.start_time.strftime("%I:%M %p").lstrip("0")
-                if event.start_time
+                event.datetime_start.strftime("%I:%M %p").lstrip("0")
+                if event.datetime_start
                 else None
             ),
             "end_time_raw": (
-                event.end_time.strftime("%I:%M %p").lstrip("0")
-                if event.end_time
+                event.datetime_end.strftime("%I:%M %p").lstrip("0")
+                if event.datetime_end
                 else None
             ),
             "description": event.description,
@@ -195,9 +195,9 @@ async def generate_web_data(
         }
 
         # Add AI extraction indicator
-        if event.ai_generated_name:
+        if event.extraction_method == "ai-vision":
             web_event["extraction_method"] = "vision"
-            web_event["vendor"] = f"{event.food_truck_name} 🖼️🤖"
+            web_event["vendor"] = f"{event.title} 🖼️🤖"
 
         web_events.append(web_event)
 
@@ -218,7 +218,7 @@ async def generate_web_data(
 
 
 async def deploy_to_web(
-    events: List[FoodTruckEvent],
+    events: List[Event],
     errors: Optional[List[ScrapingError]] = None,
     git_repo_url: Optional[str] = None,
 ) -> bool:
@@ -354,7 +354,7 @@ def _deploy_with_github_auth(web_data: dict, repository_url: str) -> bool:
 
 
 async def preview_locally(
-    events: List[FoodTruckEvent], errors: Optional[List[ScrapingError]] = None
+    events: List[Event], errors: Optional[List[ScrapingError]] = None
 ) -> bool:
     """Generate web files locally in public/ directory for preview."""
     import shutil
