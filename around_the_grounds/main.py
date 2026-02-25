@@ -19,37 +19,11 @@ except ImportError:
     # dotenv is optional, fall back to os.environ
     pass
 
-from .config.settings import get_git_repository_url
+from .config.loader import VenueList, load_venue_list
 from .models import Brewery, FoodTruckEvent
 from .scrapers.coordinator import ScraperCoordinator, ScrapingError
 from .utils.haiku_generator import HaikuGenerator
 from .utils.timezone_utils import format_time_with_timezone
-
-
-def load_brewery_config(config_path: Optional[str] = None) -> List[Brewery]:
-    """Load brewery configuration from JSON file."""
-    if config_path is None:
-        config_path_obj = Path(__file__).parent / "config" / "breweries.json"
-    else:
-        config_path_obj = Path(config_path)
-
-    if not config_path_obj.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path_obj}")
-
-    with open(config_path_obj, "r") as f:
-        config = json.load(f)
-
-    breweries = []
-    for brewery_data in config.get("breweries", []):
-        brewery = Brewery(
-            key=brewery_data["key"],
-            name=brewery_data["name"],
-            url=brewery_data["url"],
-            parser_config=brewery_data.get("parser_config", {}),
-        )
-        breweries.append(brewery)
-
-    return breweries
 
 
 def format_events_output(
@@ -220,12 +194,14 @@ async def generate_web_data(
 async def deploy_to_web(
     events: List[FoodTruckEvent],
     errors: Optional[List[ScrapingError]] = None,
-    git_repo_url: Optional[str] = None,
+    venue_list: Optional[VenueList] = None,
 ) -> bool:
     """Generate web data and deploy to Vercel via git."""
     try:
-        # Get repository URL with fallback chain
-        repository_url = get_git_repository_url(git_repo_url)
+        # Get repository URL from venue list
+        repository_url = venue_list.target_repo if venue_list else ""
+        target_branch = venue_list.target_branch if venue_list else "main"
+        template_dir = venue_list.template_dir if venue_list else None
 
         # Generate web data
         error_messages = [error.to_user_message() for error in errors or []]
@@ -236,7 +212,9 @@ async def deploy_to_web(
         print(f"📍 Target repository: {repository_url}")
 
         # Use GitHub App authentication for deployment (like Temporal workflow)
-        return _deploy_with_github_auth(web_data, repository_url)
+        return _deploy_with_github_auth(
+            web_data, repository_url, target_branch, template_dir
+        )
 
     except subprocess.CalledProcessError as e:
         print(f"❌ Deployment failed: {e}")
@@ -246,7 +224,12 @@ async def deploy_to_web(
         return False
 
 
-def _deploy_with_github_auth(web_data: dict, repository_url: str) -> bool:
+def _deploy_with_github_auth(
+    web_data: dict,
+    repository_url: str,
+    target_branch: str = "main",
+    template_dir: Optional[str] = None,
+) -> bool:
     """Deploy web data to git repository using GitHub App authentication."""
     import shutil
     import tempfile
@@ -282,8 +265,11 @@ def _deploy_with_github_auth(web_data: dict, repository_url: str) -> bool:
                 capture_output=True,
             )
 
-            # Copy template files from public_template to cloned repo
-            public_template_dir = Path.cwd() / "public_template"
+            # Copy template files from public_template (or custom template_dir) to cloned repo
+            if template_dir:
+                public_template_dir = Path(template_dir)
+            else:
+                public_template_dir = Path.cwd() / "public_template"
             target_public_dir = repo_dir / "public"
 
             print(f"📋 Copying template files from {public_template_dir}...")
@@ -332,10 +318,10 @@ def _deploy_with_github_auth(web_data: dict, repository_url: str) -> bool:
                 capture_output=True,
             )
 
-            # Push to origin
+            # Push to target branch
             print(f"🚀 Pushing to {repository_url}...")
             subprocess.run(
-                ["git", "push", "origin", "main"],
+                ["git", "push", "origin", target_branch],
                 cwd=repo_dir,
                 check=True,
                 capture_output=True,
@@ -354,7 +340,9 @@ def _deploy_with_github_auth(web_data: dict, repository_url: str) -> bool:
 
 
 async def preview_locally(
-    events: List[FoodTruckEvent], errors: Optional[List[ScrapingError]] = None
+    events: List[FoodTruckEvent],
+    errors: Optional[List[ScrapingError]] = None,
+    template_dir: Optional[str] = None,
 ) -> bool:
     """Generate web files locally in public/ directory for preview."""
     import shutil
@@ -366,7 +354,10 @@ async def preview_locally(
         web_data = await generate_web_data(events, error_messages)
 
         # Set up paths
-        public_template_dir = Path.cwd() / "public_template"
+        if template_dir:
+            public_template_dir = Path(template_dir)
+        else:
+            public_template_dir = Path.cwd() / "public_template"
         local_public_dir = Path.cwd() / "public"
 
         # Ensure public_template exists
@@ -399,12 +390,18 @@ async def preview_locally(
         return False
 
 
-async def scrape_food_trucks(config_path: Optional[str] = None) -> tuple:
-    """Scrape food truck schedules from all configured breweries."""
-    breweries = load_brewery_config(config_path)
+async def scrape_food_trucks(venues_config: Optional[str] = None) -> tuple:
+    """Scrape food truck schedules from all configured venues."""
+    if venues_config is None:
+        default_config = Path(__file__).parent / "config" / "breweries.json"
+        venue_list = load_venue_list(default_config)
+    else:
+        venue_list = load_venue_list(venues_config)
+
+    breweries = venue_list.venues
 
     if not breweries:
-        print("No breweries configured.")
+        print("No venues configured.")
         return [], []
 
     coordinator = ScraperCoordinator()
@@ -416,17 +413,35 @@ async def scrape_food_trucks(config_path: Optional[str] = None) -> tuple:
 
 async def async_main(args: argparse.Namespace) -> int:
     """Async main entry point that handles all async operations."""
-    events, errors = await scrape_food_trucks(args.config)
+    venues_config = args.venues_config
+
+    # Load venue list for config-driven deployment
+    if venues_config is None:
+        default_config = Path(__file__).parent / "config" / "breweries.json"
+        venue_list = load_venue_list(default_config)
+    else:
+        venue_list = load_venue_list(venues_config)
+
+    breweries = venue_list.venues
+
+    if not breweries:
+        print("No venues configured.")
+        return 0
+
+    coordinator = ScraperCoordinator()
+    events = await coordinator.scrape_all(breweries)
+    errors = coordinator.get_errors()
+
     output = format_events_output(events, errors)
     print(output)
 
     # Deploy to web if requested
     if args.deploy and events:
-        await deploy_to_web(events, errors, args.git_repo)
+        await deploy_to_web(events, errors, venue_list)
 
     # Generate local preview if requested
     if args.preview and events:
-        await preview_locally(events, errors)
+        await preview_locally(events, errors, venue_list.template_dir)
 
     # Return appropriate exit code
     if errors and not events:
@@ -444,7 +459,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
     parser.add_argument(
-        "--config", "-c", help="Path to brewery configuration JSON file"
+        "venues_config",
+        nargs="?",
+        default=None,
+        help="Path to venues configuration JSON file",
     )
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
@@ -454,10 +472,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         "-d",
         action="store_true",
         help="Deploy results to web (generate JSON and push to git)",
-    )
-    parser.add_argument(
-        "--git-repo",
-        help="Git repository URL for deployment (default: ballard-food-trucks)",
     )
     parser.add_argument(
         "--preview",
