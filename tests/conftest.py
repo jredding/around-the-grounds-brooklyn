@@ -110,18 +110,23 @@ def past_date() -> datetime:
 def test_breweries_config() -> Dict[str, Any]:
     """Test breweries configuration."""
     return {
-        "breweries": [
+        "list_name": "Test List",
+        "target_repo": "https://github.com/test/repo.git",
+        "target_branch": "main",
+        "venues": [
             {
                 "key": "test-brewery-1",
                 "name": "Test Brewery 1",
                 "url": "https://example1.com/food-trucks",
+                "source_type": "html",
                 "parser_config": {"test": "config1"},
             },
             {
                 "key": "test-brewery-2",
                 "name": "Test Brewery 2",
                 "url": "https://example2.com/food-trucks",
+                "source_type": "html",
                 "parser_config": {"test": "config2"},
             },
-        ]
+        ],
     }

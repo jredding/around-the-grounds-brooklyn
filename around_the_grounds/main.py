@@ -422,15 +422,7 @@ async def async_main(args: argparse.Namespace) -> int:
     else:
         venue_list = load_venue_list(venues_config)
 
-    breweries = venue_list.venues
-
-    if not breweries:
-        print("No venues configured.")
-        return 0
-
-    coordinator = ScraperCoordinator()
-    events = await coordinator.scrape_all(breweries)
-    errors = coordinator.get_errors()
+    events, errors = await scrape_food_trucks(venues_config)
 
     output = format_events_output(events, errors)
     print(output)

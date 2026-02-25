@@ -9,9 +9,9 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
+from around_the_grounds.config.loader import load_venue_list
 from around_the_grounds.main import (
     format_events_output,
-    load_brewery_config,
     main,
     scrape_food_trucks,
 )
@@ -24,7 +24,7 @@ class TestCLI:
 
     @pytest.fixture
     def temp_config_file(
-        self, test_breweries_config: List[Dict[str, Any]]
+        self, test_breweries_config: Dict[str, Any]
     ) -> Generator[str, None, None]:
         """Create a temporary config file for testing."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
@@ -60,61 +60,22 @@ class TestCLI:
             ),
         ]
 
-    def test_load_brewery_config_success(self, temp_config_file: str) -> None:
-        """Test successful loading of brewery configuration."""
-        breweries = load_brewery_config(temp_config_file)
+    def test_load_venue_list_success(self, temp_config_file: str) -> None:
+        """Test successful loading of venue configuration."""
+        venue_list = load_venue_list(temp_config_file)
 
-        assert len(breweries) == 2
-        assert breweries[0].key == "test-brewery-1"
-        assert breweries[0].name == "Test Brewery 1"
-        assert breweries[0].url == "https://example1.com/food-trucks"
-        assert breweries[1].key == "test-brewery-2"
+        assert len(venue_list.venues) == 2
+        assert venue_list.venues[0].key == "test-brewery-1"
+        assert venue_list.venues[0].name == "Test Brewery 1"
+        assert venue_list.venues[0].url == "https://example1.com/food-trucks"
+        assert venue_list.venues[1].key == "test-brewery-2"
 
-    def test_load_brewery_config_default_path(self) -> None:
-        """Test loading brewery config from default path."""
-        # Should use the default config file
-        with patch("around_the_grounds.main.Path") as mock_path:
-            mock_config_path = (
-                mock_path.return_value.parent / "config" / "breweries.json"
-            )
-            mock_config_path.exists.return_value = True
-
-            with patch("builtins.open", create=True) as mock_open:
-                mock_open.return_value.__enter__.return_value.read.return_value = (
-                    json.dumps(
-                        {
-                            "breweries": [
-                                {
-                                    "key": "default",
-                                    "name": "Default",
-                                    "url": "https://example.com",
-                                }
-                            ]
-                        }
-                    )
-                )
-
-                with patch("json.load") as mock_json_load:
-                    mock_json_load.return_value = {
-                        "breweries": [
-                            {
-                                "key": "default",
-                                "name": "Default",
-                                "url": "https://example.com",
-                            }
-                        ]
-                    }
-
-                    breweries = load_brewery_config()
-                    assert len(breweries) == 1
-                    assert breweries[0].key == "default"
-
-    def test_load_brewery_config_file_not_found(self) -> None:
+    def test_load_venue_list_file_not_found(self) -> None:
         """Test loading config when file doesn't exist."""
         with pytest.raises(FileNotFoundError):
-            load_brewery_config("/nonexistent/config.json")
+            load_venue_list("/nonexistent/config.json")
 
-    def test_load_brewery_config_invalid_json(self) -> None:
+    def test_load_venue_list_invalid_json(self) -> None:
         """Test loading config with invalid JSON."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write("invalid json content")
@@ -122,7 +83,7 @@ class TestCLI:
 
         try:
             with pytest.raises(json.JSONDecodeError):
-                load_brewery_config(temp_path)
+                load_venue_list(temp_path)
         finally:
             Path(temp_path).unlink()
 
@@ -266,16 +227,38 @@ class TestCLI:
             assert len(returned_errors) == 1
 
     @pytest.mark.asyncio
-    async def test_scrape_food_trucks_no_breweries(self) -> None:
-        """Test scraping with no breweries configured."""
+    async def test_scrape_food_trucks_no_venues(self) -> None:
+        """Test scraping with no venues configured."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump({"breweries": []}, f)
+            json.dump(
+                {
+                    "list_name": "Empty",
+                    "target_repo": "",
+                    "venues": [
+                        {
+                            "key": "placeholder",
+                            "name": "Placeholder",
+                            "url": "https://example.com",
+                            "source_type": "html",
+                        }
+                    ],
+                },
+                f,
+            )
             temp_path = f.name
 
         try:
-            events, errors = await scrape_food_trucks(temp_path)
-            assert len(events) == 0
-            assert len(errors) == 0
+            with patch(
+                "around_the_grounds.main.ScraperCoordinator"
+            ) as mock_coordinator_class:
+                mock_coordinator = Mock()
+                mock_coordinator.scrape_all = AsyncMock(return_value=[])
+                mock_coordinator.get_errors = Mock(return_value=[])
+                mock_coordinator_class.return_value = mock_coordinator
+
+                events, errors = await scrape_food_trucks(temp_path)
+                assert len(events) == 0
+                assert len(errors) == 0
         finally:
             Path(temp_path).unlink()
 
@@ -289,7 +272,7 @@ class TestCLI:
         with patch("around_the_grounds.main.scrape_food_trucks") as mock_scrape:
             mock_scrape.return_value = (sample_cli_events, [])
 
-            exit_code = main(["--config", temp_config_file])
+            exit_code = main([temp_config_file])
 
             assert exit_code == 0
             captured = capsys.readouterr()
@@ -304,7 +287,7 @@ class TestCLI:
         with patch("around_the_grounds.main.scrape_food_trucks") as mock_scrape:
             mock_scrape.return_value = ([], errors)
 
-            exit_code = main(["--config", temp_config_file])
+            exit_code = main([temp_config_file])
 
             assert exit_code == 1  # Complete failure
             captured = capsys.readouterr()
@@ -323,7 +306,7 @@ class TestCLI:
         with patch("around_the_grounds.main.scrape_food_trucks") as mock_scrape:
             mock_scrape.return_value = (sample_cli_events, errors)
 
-            exit_code = main(["--config", temp_config_file])
+            exit_code = main([temp_config_file])
 
             assert exit_code == 2  # Partial success
             captured = capsys.readouterr()
@@ -335,7 +318,7 @@ class TestCLI:
         with patch("around_the_grounds.main.asyncio.run") as mock_run:
             mock_run.side_effect = Exception("Critical error occurred")
 
-            exit_code = main(["--config", temp_config_file])
+            exit_code = main([temp_config_file])
 
             assert exit_code == 1
             captured = capsys.readouterr()
@@ -346,7 +329,7 @@ class TestCLI:
         with patch("around_the_grounds.main.asyncio.run") as mock_run:
             mock_run.side_effect = Exception("Test error")
 
-            exit_code = main(["--config", temp_config_file, "--verbose"])
+            exit_code = main([temp_config_file, "--verbose"])
 
             assert exit_code == 1
             captured = capsys.readouterr()
@@ -370,12 +353,12 @@ class TestCLI:
         assert exc_info.value.code == 0
         captured = capsys.readouterr()
         assert "Track food truck schedules" in captured.out
-        assert "--config" in captured.out
+        assert "venues_config" in captured.out
         assert "--verbose" in captured.out
 
     def test_main_invalid_config_file(self, capsys: Any) -> None:
         """Test main function with invalid config file."""
-        exit_code = main(["--config", "/nonexistent/config.json"])
+        exit_code = main(["/nonexistent/config.json"])
 
         assert exit_code == 1
         captured = capsys.readouterr()
@@ -384,14 +367,14 @@ class TestCLI:
 
     def test_main_default_config(self, capsys: Any) -> None:
         """Test main function using default config path."""
-        with patch("around_the_grounds.main.load_brewery_config") as mock_load:
+        with patch("around_the_grounds.main.load_venue_list") as mock_load:
             mock_load.side_effect = FileNotFoundError("Config not found")
 
             exit_code = main([])
 
             assert exit_code == 1
             # Should try to load default config
-            mock_load.assert_called_once_with(None)
+            mock_load.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_main_integration_end_to_end(self, temp_config_file: str) -> None:

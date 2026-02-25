@@ -9,16 +9,16 @@ class TestWorkflowDataClasses:
     def test_workflow_params_defaults(self) -> None:
         """Test WorkflowParams with default values."""
         params = WorkflowParams()
-        assert params.config_path is None
+        assert params.venues_config is None
         assert params.deploy is False
         assert params.max_parallel_scrapes == 10
 
     def test_workflow_params_custom(self) -> None:
         """Test WorkflowParams with custom values."""
         params = WorkflowParams(
-            config_path="/test/config.json", deploy=True, max_parallel_scrapes=3
+            venues_config="/test/config.json", deploy=True, max_parallel_scrapes=3
         )
-        assert params.config_path == "/test/config.json"
+        assert params.venues_config == "/test/config.json"
         assert params.deploy is True
         assert params.max_parallel_scrapes == 3
 
@@ -97,7 +97,7 @@ class TestActivitiesImport:
         )
 
         scrape_activities = ScrapeActivities()
-        assert hasattr(scrape_activities, "load_brewery_config")
+        assert hasattr(scrape_activities, "load_venue_list")
         assert hasattr(scrape_activities, "scrape_food_trucks")
         assert hasattr(scrape_activities, "scrape_single_brewery")
 

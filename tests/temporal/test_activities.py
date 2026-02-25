@@ -62,68 +62,123 @@ class TestScrapeActivities:
     """Tests for ScrapeActivities."""
 
     @pytest.mark.asyncio
-    async def test_load_brewery_config_default(self) -> None:
-        """Test loading brewery configuration with default path."""
+    async def test_load_venue_list_default(self) -> None:
+        """Test loading venue configuration with default path."""
+        import json
+        import tempfile
+        from pathlib import Path
+
         activities = ScrapeActivities()
 
-        with patch(
-            "around_the_grounds.temporal.activities.load_brewery_config"
-        ) as mock_load:
-            # Mock breweries
-            from around_the_grounds.models import Brewery
+        config = {
+            "list_name": "Test",
+            "target_repo": "https://github.com/test/repo.git",
+            "venues": [
+                {
+                    "key": "stoup-ballard",
+                    "name": "Stoup Brewing - Ballard",
+                    "url": "https://stoup.com/food-trucks",
+                    "source_type": "html",
+                    "parser_config": {"selector": ".event"},
+                },
+                {
+                    "key": "urban-family",
+                    "name": "Urban Family Brewing",
+                    "url": "https://urbanfamilybrewing.com",
+                    "source_type": "api",
+                    "parser_config": {"api_url": "https://api.urbanfamily.com"},
+                },
+            ],
+        }
 
-            mock_breweries = [
-                Brewery(
-                    key="stoup-ballard",
-                    name="Stoup Brewing - Ballard",
-                    url="https://stoup.com/food-trucks",
-                    parser_config={"selector": ".event"},
-                ),
-                Brewery(
-                    key="urban-family",
-                    name="Urban Family Brewing",
-                    url="https://urbanfamilybrewing.com",
-                    parser_config={"api_url": "https://api.urbanfamily.com"},
-                ),
-            ]
-            mock_load.return_value = mock_breweries
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as tmp:
+            json.dump(config, tmp)
+            tmp_path = tmp.name
 
-            result = await activities.load_brewery_config()
+        try:
+            with patch(
+                "around_the_grounds.temporal.activities._load_venue_list"
+            ) as mock_load:
+                from around_the_grounds.config.loader import VenueList
+                from around_the_grounds.models import Brewery
 
-            assert isinstance(result, list)
-            assert len(result) == 2
+                mock_venue_list = VenueList(
+                    list_name="Test",
+                    target_repo="https://github.com/test/repo.git",
+                    venues=[
+                        Brewery(
+                            key="stoup-ballard",
+                            name="Stoup Brewing - Ballard",
+                            url="https://stoup.com/food-trucks",
+                            parser_config={"selector": ".event"},
+                        ),
+                        Brewery(
+                            key="urban-family",
+                            name="Urban Family Brewing",
+                            url="https://urbanfamilybrewing.com",
+                            parser_config={"api_url": "https://api.urbanfamily.com"},
+                        ),
+                    ],
+                )
+                mock_load.return_value = mock_venue_list
 
-            # Check first brewery
-            assert result[0]["key"] == "stoup-ballard"
-            assert result[0]["name"] == "Stoup Brewing - Ballard"
-            assert result[0]["url"] == "https://stoup.com/food-trucks"
-            assert result[0]["parser_config"]["selector"] == ".event"
+                result = await activities.load_venue_list(tmp_path)
 
-            # Check second brewery
-            assert result[1]["key"] == "urban-family"
-            assert result[1]["name"] == "Urban Family Brewing"
-            assert result[1]["url"] == "https://urbanfamilybrewing.com"
-            assert (
-                result[1]["parser_config"]["api_url"] == "https://api.urbanfamily.com"
-            )
+                assert isinstance(result, list)
+                assert len(result) == 2
 
-            mock_load.assert_called_once_with(None)
+                # Check first brewery
+                assert result[0]["key"] == "stoup-ballard"
+                assert result[0]["name"] == "Stoup Brewing - Ballard"
+                assert result[0]["url"] == "https://stoup.com/food-trucks"
+                assert result[0]["parser_config"]["selector"] == ".event"
+
+                # Check second brewery
+                assert result[1]["key"] == "urban-family"
+                assert result[1]["name"] == "Urban Family Brewing"
+                assert result[1]["url"] == "https://urbanfamilybrewing.com"
+                assert (
+                    result[1]["parser_config"]["api_url"]
+                    == "https://api.urbanfamily.com"
+                )
+        finally:
+            Path(tmp_path).unlink()
 
     @pytest.mark.asyncio
-    async def test_load_brewery_config_custom_path(self) -> None:
-        """Test loading brewery configuration with custom path."""
+    async def test_load_venue_list_custom_path(self) -> None:
+        """Test loading venue configuration with custom path."""
+        import json
+        import tempfile
+        from pathlib import Path
+
         activities = ScrapeActivities()
-        custom_path = "/path/to/custom/config.json"
+        config = {
+            "list_name": "Custom",
+            "target_repo": "https://github.com/test/repo.git",
+            "venues": [
+                {
+                    "key": "v1",
+                    "name": "V1",
+                    "url": "https://example.com",
+                    "source_type": "html",
+                }
+            ],
+        }
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as tmp:
+            json.dump(config, tmp)
+            tmp_path = tmp.name
 
-        with patch(
-            "around_the_grounds.temporal.activities.load_brewery_config"
-        ) as mock_load:
-            mock_load.return_value = []
-
-            result = await activities.load_brewery_config(custom_path)
-
+        try:
+            result = await activities.load_venue_list(tmp_path)
             assert isinstance(result, list)
-            mock_load.assert_called_once_with(custom_path)
+            assert len(result) == 1
+            assert result[0]["key"] == "v1"
+        finally:
+            Path(tmp_path).unlink()
 
     @pytest.mark.asyncio
     async def test_scrape_food_trucks_success(
