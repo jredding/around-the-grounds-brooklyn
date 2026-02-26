@@ -36,9 +36,21 @@ uv sync
 
 ### Basic CLI Usage
 ```bash
-uv run around-the-grounds              # Show 7-day schedule
+uv run around-the-grounds              # Show 7-day schedule (default: ballard-food-trucks)
 uv run around-the-grounds --verbose    # With detailed logging
 uv run around-the-grounds --preview    # Generate local preview files
+uv run around-the-grounds --deploy     # Scrape and deploy to web
+
+# Run a specific site
+uv run around-the-grounds --site ballard-food-trucks
+uv run around-the-grounds --site park-slope-music
+uv run around-the-grounds --site childrens-events
+
+# Run all configured sites
+uv run around-the-grounds --site all
+
+# Combine flags
+uv run around-the-grounds --site ballard-food-trucks --deploy --verbose
 ```
 
 ### Example Output
@@ -213,12 +225,15 @@ docker logs -f around-the-grounds-worker
 
 ## Configuration
 
-### Supported Breweries
-- **Stoup Brewing - Ballard**: HTML parsing with date/time extraction
-- **Yonder Cider & Bale Breaker - Ballard**: Squarespace API integration  
-- **Obec Brewing**: Text-based parsing
-- **Urban Family Brewing**: Hivey API with AI vision analysis fallback
-- **Wheelie Pop Brewing**: HTML parsing with date/time extraction
+### Configured Sites
+
+Site configs live in `around_the_grounds/config/sites/`. Each site has its own venues, template, timezone, and target deployment repo.
+
+| Site Key | Name | Venues | Template | Target Repo |
+|---|---|---|---|---|
+| `ballard-food-trucks` | Ballard Food Trucks | Stoup, Bale Breaker, Obec, Urban Family, Wheelie Pop, Chuck's, Saleh's | `food-trucks` | `atg-ballard-food-trucks` |
+| `park-slope-music` | Park Slope Indie Music Events | Union Hall, Littlefield | `music` | `atg-park-slope-music` |
+| `childrens-events` | Brooklyn Children's Events | MacaroniKid, Little Kid Big City | `kids` | `atg-childrens-events` |
 
 ### Environment Variables
 ```bash
@@ -245,7 +260,7 @@ Copy the default file and tweak the location descriptions, tone, or formatting t
 
 ### Custom Repository
 ```bash
-# Deploy to specific repository
+# Deploy to specific repository (overrides site config target_repo)
 uv run around-the-grounds --deploy --git-repo https://github.com/username/custom-repo.git
 
 # Or set environment variable
