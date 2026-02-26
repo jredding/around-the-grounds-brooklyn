@@ -282,7 +282,7 @@ The CLI is configured in `pyproject.toml` with entry point `around-the-grounds =
 
 ## Adding New Sites and Venues
 
-See [ADDING-BREWERIES.md](./ADDING-BREWERIES.md) for how to add new sites and venues using JSON config files and generic parsers.
+See [ADDING-VENUES.md](./ADDING-VENUES.md) for how to add new sites and venues using JSON config files and generic parsers.
 
 ## Haiku Generator
 
