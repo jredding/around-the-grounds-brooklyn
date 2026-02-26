@@ -26,15 +26,8 @@ from .scrapers.coordinator import ScraperCoordinator, ScrapingError
 from .utils.haiku_generator import HaikuGenerator
 from .utils.timezone_utils import format_time_with_timezone
 
-# ---------------------------------------------------------------------------
-# Backward-compat shim: load_brewery_config still works for existing callers
-# (temporal activities, tests, etc.)
-# ---------------------------------------------------------------------------
-from .models import Brewery, FoodTruckEvent  # noqa: F401 (re-export)
-
-
 def load_brewery_config(config_path: Optional[str] = None) -> List[Venue]:
-    """Load venue configuration from JSON file (backward compat, reads breweries.json)."""
+    """Load venue configuration from JSON file (reads breweries.json)."""
     if config_path is None:
         config_path_obj = Path(__file__).parent / "config" / "breweries.json"
     else:
@@ -574,7 +567,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         ),
     )
     parser.add_argument(
-        "--config", "-c", help="Path to site or brewery configuration JSON file"
+        "--config", "-c", help="Path to site or venue configuration JSON file"
     )
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"

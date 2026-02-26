@@ -19,7 +19,7 @@ class BaleBreakerParser(BaseParser):
 
         try:
             # First, try to get the main page to find the collection ID
-            soup = await self.fetch_page(session, self.brewery.url)
+            soup = await self.fetch_page(session, self.venue.url)
             if soup:
                 collection_id = self._extract_collection_id(soup)
         except ValueError as e:
@@ -198,8 +198,8 @@ class BaleBreakerParser(BaseParser):
 
             # Create event
             event = Event(
-                venue_key=self.brewery.key,
-                venue_name=self.brewery.name,
+                venue_key=self.venue.key,
+                venue_name=self.venue.name,
                 title=title,
                 date=start_date,
                 start_time=start_date,
@@ -218,8 +218,8 @@ class BaleBreakerParser(BaseParser):
     def _create_fallback_event(self) -> List[Event]:
         """Create a fallback event when API parsing fails"""
         placeholder_event = Event(
-            venue_key=self.brewery.key,
-            venue_name=self.brewery.name,
+            venue_key=self.venue.key,
+            venue_name=self.venue.name,
             title="Check Instagram @BaleBreaker",
             date=datetime.now(),
             description="Food truck schedule not available - check Instagram or website directly",

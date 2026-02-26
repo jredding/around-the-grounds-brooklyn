@@ -9,7 +9,7 @@ import pytest
 from aioresponses import aioresponses
 from freezegun import freeze_time
 
-from around_the_grounds.models import Brewery
+from around_the_grounds.models import Venue
 from around_the_grounds.parsers.salehs_corner import SalehsCornerParser
 
 
@@ -17,9 +17,9 @@ class TestSalehsCornerParser:
     """Test the SalehsCornerParser class."""
 
     @pytest.fixture
-    def brewery(self) -> Brewery:
+    def brewery(self) -> Venue:
         """Create a test brewery for Saleh's Corner."""
-        return Brewery(
+        return Venue(
             key="salehs-corner",
             name="Saleh's Corner",
             url="https://www.seattlefoodtruck.com/api/events",
@@ -32,7 +32,7 @@ class TestSalehsCornerParser:
         )
 
     @pytest.fixture
-    def parser(self, brewery: Brewery) -> SalehsCornerParser:
+    def parser(self, brewery: Venue) -> SalehsCornerParser:
         """Create a parser instance."""
         return SalehsCornerParser(brewery)
 

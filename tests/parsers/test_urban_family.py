@@ -8,7 +8,7 @@ import aiohttp
 import pytest
 from aioresponses import aioresponses
 
-from around_the_grounds.models import Brewery
+from around_the_grounds.models import Venue
 from around_the_grounds.parsers.urban_family import UrbanFamilyParser
 
 
@@ -16,9 +16,9 @@ class TestUrbanFamilyParser:
     """Test the UrbanFamilyParser class."""
 
     @pytest.fixture
-    def brewery(self) -> Brewery:
+    def brewery(self) -> Venue:
         """Create a test brewery for Urban Family."""
-        return Brewery(
+        return Venue(
             key="urban-family",
             name="Urban Family Brewing",
             url="https://app.hivey.io/urbanfamily/public-calendar",
@@ -29,7 +29,7 @@ class TestUrbanFamilyParser:
         )
 
     @pytest.fixture
-    def parser(self, brewery: Brewery) -> UrbanFamilyParser:
+    def parser(self, brewery: Venue) -> UrbanFamilyParser:
         """Create a parser instance."""
         return UrbanFamilyParser(brewery)
 

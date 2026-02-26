@@ -7,7 +7,7 @@ import pytest
 from aioresponses import aioresponses
 from bs4 import BeautifulSoup
 
-from around_the_grounds.models import Venue, Event, Brewery, FoodTruckEvent
+from around_the_grounds.models import Venue, Event
 from around_the_grounds.parsers.base import BaseParser
 
 
@@ -32,8 +32,6 @@ class TestBaseParser:
         parser = ConcreteParser(sample_brewery)
 
         assert parser.venue == sample_brewery
-        # Backward-compat alias
-        assert parser.brewery == sample_brewery
         assert hasattr(parser, "logger")
 
     @pytest.mark.asyncio
@@ -220,27 +218,26 @@ class TestBaseParser:
                 assert isinstance(soup, BeautifulSoup)
                 assert soup.find("div") is not None
 
-    # Backward-compat aliases for old test method names
-    def test_validate_event_missing_brewery_key(
+    def test_validate_event_missing_venue_key(
         self, parser: ConcreteParser, sample_food_truck_event: Event
     ) -> None:
-        """Backward-compat: test validation with missing venue key."""
+        """Test validation with missing venue key."""
         sample_food_truck_event.venue_key = ""
         result = parser.validate_event(sample_food_truck_event)
         assert result is False
 
-    def test_validate_event_missing_brewery_name(
+    def test_validate_event_missing_venue_name(
         self, parser: ConcreteParser, sample_food_truck_event: Event
     ) -> None:
-        """Backward-compat: test validation with missing venue name."""
+        """Test validation with missing venue name."""
         sample_food_truck_event.venue_name = ""
         result = parser.validate_event(sample_food_truck_event)
         assert result is False
 
-    def test_validate_event_missing_food_truck_name(
+    def test_validate_event_missing_title(
         self, parser: ConcreteParser, sample_food_truck_event: Event
     ) -> None:
-        """Backward-compat: test validation with missing title."""
+        """Test validation with missing title."""
         sample_food_truck_event.title = ""
         result = parser.validate_event(sample_food_truck_event)
         assert result is False

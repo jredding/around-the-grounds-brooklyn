@@ -11,8 +11,6 @@ from ..models import Venue, Event
 class BaseParser(ABC):
     def __init__(self, venue: Venue):
         self.venue = venue
-        # Backward-compat alias — existing specific parsers use self.brewery.*
-        self.brewery = venue
         self.logger = logging.getLogger(self.__class__.__name__)
 
     @abstractmethod

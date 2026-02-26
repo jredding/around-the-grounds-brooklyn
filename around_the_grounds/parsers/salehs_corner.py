@@ -123,7 +123,7 @@ class SalehsCornerParser(BaseParser):
             api_data: JSON response from the API
 
         Returns:
-            List of FoodTruckEvent objects
+            List of Event objects
         """
         events = []
 
@@ -201,8 +201,8 @@ class SalehsCornerParser(BaseParser):
                 description = f"Cuisine: {', '.join(food_categories)}"
 
             return Event(
-                venue_key=self.brewery.key,
-                venue_name=self.brewery.name,
+                venue_key=self.venue.key,
+                venue_name=self.venue.name,
                 title=vendor_name,
                 date=start_time_dt,
                 start_time=start_time_dt,

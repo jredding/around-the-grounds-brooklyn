@@ -8,7 +8,7 @@ import pytest
 from aioresponses import aioresponses
 from freezegun import freeze_time
 
-from around_the_grounds.models import Brewery
+from around_the_grounds.models import Venue
 from around_the_grounds.parsers.stoup_ballard import StoupBallardParser
 
 
@@ -16,9 +16,9 @@ class TestStoupBallardParser:
     """Test the StoupBallardParser class."""
 
     @pytest.fixture
-    def brewery(self) -> Brewery:
+    def brewery(self) -> Venue:
         """Create a test brewery for Stoup Ballard."""
-        return Brewery(
+        return Venue(
             key="stoup-ballard",
             name="Stoup Brewing - Ballard",
             url="https://example.com/ballard",
@@ -32,7 +32,7 @@ class TestStoupBallardParser:
         )
 
     @pytest.fixture
-    def parser(self, brewery: Brewery) -> StoupBallardParser:
+    def parser(self, brewery: Venue) -> StoupBallardParser:
         """Create a parser instance."""
         return StoupBallardParser(brewery)
 
@@ -49,7 +49,7 @@ class TestStoupBallardParser:
     ) -> None:
         """Test parsing structured HTML data."""
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body=structured_html)
+            m.get(parser.venue.url, status=200, body=structured_html)
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
@@ -83,7 +83,7 @@ class TestStoupBallardParser:
         empty_html = "<html><body><p>No food trucks today</p></body></html>"
 
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body=empty_html)
+            m.get(parser.venue.url, status=200, body=empty_html)
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
@@ -104,7 +104,7 @@ class TestStoupBallardParser:
         """
 
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body=malformed_html)
+            m.get(parser.venue.url, status=200, body=malformed_html)
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
@@ -125,7 +125,7 @@ class TestStoupBallardParser:
         """
 
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body=missing_time_html)
+            m.get(parser.venue.url, status=200, body=missing_time_html)
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
@@ -201,7 +201,7 @@ class TestStoupBallardParser:
     async def test_parse_network_error(self, parser: StoupBallardParser) -> None:
         """Test handling of network errors."""
         with aioresponses() as m:
-            m.get(parser.brewery.url, exception=aiohttp.ClientError("Network error"))
+            m.get(parser.venue.url, exception=aiohttp.ClientError("Network error"))
 
             async with aiohttp.ClientSession() as session:
                 with pytest.raises(
@@ -224,7 +224,7 @@ class TestStoupBallardParser:
         """
 
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body=fallback_html)
+            m.get(parser.venue.url, status=200, body=fallback_html)
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
@@ -245,7 +245,7 @@ class TestStoupBallardParser:
             real_html = fixture_path.read_text()
 
             with aioresponses() as m:
-                m.get(parser.brewery.url, status=200, body=real_html)
+                m.get(parser.venue.url, status=200, body=real_html)
 
                 async with aiohttp.ClientSession() as session:
                     # This should not raise an error regardless of content

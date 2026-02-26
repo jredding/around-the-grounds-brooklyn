@@ -43,7 +43,7 @@ class ChucksGreenwoodParser(BaseParser):
     async def parse(self, session: aiohttp.ClientSession) -> List[Event]:
         """Parse food truck events from Google Sheets CSV."""
         try:
-            csv_data = await self._fetch_csv(session, self.brewery.url)
+            csv_data = await self._fetch_csv(session, self.venue.url)
             if not csv_data:
                 raise ValueError("Failed to fetch CSV data")
 
@@ -77,7 +77,7 @@ class ChucksGreenwoodParser(BaseParser):
             return valid_events
 
         except Exception as e:
-            self.logger.error(f"Error parsing {self.brewery.name}: {str(e)}")
+            self.logger.error(f"Error parsing {self.venue.name}: {str(e)}")
             raise ValueError(f"Failed to parse CSV data: {str(e)}")
 
     async def _fetch_csv(
@@ -165,8 +165,8 @@ class ChucksGreenwoodParser(BaseParser):
             return None
 
         return Event(
-            venue_key=self.brewery.key,
-            venue_name=self.brewery.name,
+            venue_key=self.venue.key,
+            venue_name=self.venue.name,
             title=food_truck_name,
             date=event_date,
             start_time=None,

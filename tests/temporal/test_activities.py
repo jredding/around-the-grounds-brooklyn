@@ -13,7 +13,7 @@ from around_the_grounds.temporal.activities import (
 
 
 @pytest.fixture
-def mock_brewery_configs() -> List[Dict[str, Any]]:
+def mock_venue_configs() -> List[Dict[str, Any]]:
     """Fixture providing mock brewery configurations."""
     return [
         {
@@ -70,16 +70,16 @@ class TestScrapeActivities:
             "around_the_grounds.temporal.activities.load_brewery_config"
         ) as mock_load:
             # Mock breweries
-            from around_the_grounds.models import Brewery
+            from around_the_grounds.models import Venue
 
             mock_breweries = [
-                Brewery(
+                Venue(
                     key="stoup-ballard",
                     name="Stoup Brewing - Ballard",
                     url="https://stoup.com/food-trucks",
                     parser_config={"selector": ".event"},
                 ),
-                Brewery(
+                Venue(
                     key="urban-family",
                     name="Urban Family Brewing",
                     url="https://urbanfamilybrewing.com",
@@ -127,7 +127,7 @@ class TestScrapeActivities:
 
     @pytest.mark.asyncio
     async def test_scrape_food_trucks_success(
-        self, mock_brewery_configs: List[Dict[str, Any]]
+        self, mock_venue_configs: List[Dict[str, Any]]
     ) -> None:
         """Test successful food truck scraping."""
         activities = ScrapeActivities()
@@ -140,10 +140,10 @@ class TestScrapeActivities:
             mock_coordinator_class.return_value = mock_coordinator
 
             # Mock food truck events
-            from around_the_grounds.models import FoodTruckEvent
+            from around_the_grounds.models import Event
 
             mock_food_truck_events = [
-                FoodTruckEvent(
+                Event(
                     venue_key="test-brewery-1",
                     venue_name="Test Brewery 1",
                     title="Test Truck 1",
@@ -153,7 +153,7 @@ class TestScrapeActivities:
                     description="Great food truck",
                     extraction_method="html",
                 ),
-                FoodTruckEvent(
+                Event(
                     venue_key="test-brewery-2",
                     venue_name="Test Brewery 2",
                     title="AI Truck",
@@ -168,7 +168,7 @@ class TestScrapeActivities:
             mock_coordinator.scrape_all = AsyncMock(return_value=mock_food_truck_events)
             mock_coordinator.get_errors = MagicMock(return_value=[])
 
-            events, errors = await activities.scrape_food_trucks(mock_brewery_configs)
+            events, errors = await activities.scrape_food_trucks(mock_venue_configs)
 
             assert isinstance(events, list)
             assert isinstance(errors, list)
@@ -199,7 +199,7 @@ class TestScrapeActivities:
 
     @pytest.mark.asyncio
     async def test_scrape_food_trucks_with_errors(
-        self, mock_brewery_configs: List[Dict[str, Any]]
+        self, mock_venue_configs: List[Dict[str, Any]]
     ) -> None:
         """Test food truck scraping with errors."""
         activities = ScrapeActivities()
@@ -212,10 +212,10 @@ class TestScrapeActivities:
             mock_coordinator_class.return_value = mock_coordinator
 
             # Mock scraping error
-            from around_the_grounds.models import Brewery
+            from around_the_grounds.models import Venue
             from around_the_grounds.scrapers.coordinator import ScrapingError
 
-            mock_error_brewery = Brewery(
+            mock_error_brewery = Venue(
                 key="test-brewery-1",
                 name="Test Brewery 1",
                 url="https://test1.com",
@@ -231,7 +231,7 @@ class TestScrapeActivities:
             mock_coordinator.scrape_all = AsyncMock(return_value=[])
             mock_coordinator.get_errors = MagicMock(return_value=[mock_error])
 
-            events, errors = await activities.scrape_food_trucks(mock_brewery_configs)
+            events, errors = await activities.scrape_food_trucks(mock_venue_configs)
 
             assert isinstance(events, list)
             assert isinstance(errors, list)
@@ -248,8 +248,8 @@ class TestScrapeActivities:
             )
 
     @pytest.mark.asyncio
-    async def test_scrape_single_brewery_success(
-        self, mock_brewery_configs: List[Dict[str, Any]]
+    async def test_scrape_single_venue_success(
+        self, mock_venue_configs: List[Dict[str, Any]]
     ) -> None:
         """Test scraping a single brewery without errors."""
         activities = ScrapeActivities()
@@ -260,9 +260,9 @@ class TestScrapeActivities:
             mock_coordinator = AsyncMock()
             mock_coordinator_class.return_value = mock_coordinator
 
-            from around_the_grounds.models import FoodTruckEvent
+            from around_the_grounds.models import Event
 
-            mock_event = FoodTruckEvent(
+            mock_event = Event(
                 venue_key="test-brewery-1",
                 venue_name="Test Brewery 1",
                 title="Test Truck 1",
@@ -275,7 +275,7 @@ class TestScrapeActivities:
 
             mock_coordinator.scrape_one = AsyncMock(return_value=([mock_event], None))
 
-            result = await activities.scrape_single_brewery(mock_brewery_configs[0])
+            result = await activities.scrape_single_venue(mock_venue_configs[0])
 
             assert "events" in result
             assert "error" in result
@@ -286,8 +286,8 @@ class TestScrapeActivities:
             mock_coordinator.scrape_one.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_scrape_single_brewery_with_error(
-        self, mock_brewery_configs: List[Dict[str, Any]]
+    async def test_scrape_single_venue_with_error(
+        self, mock_venue_configs: List[Dict[str, Any]]
     ) -> None:
         """Test scraping a single brewery that returns an error."""
         activities = ScrapeActivities()
@@ -298,10 +298,10 @@ class TestScrapeActivities:
             mock_coordinator = AsyncMock()
             mock_coordinator_class.return_value = mock_coordinator
 
-            from around_the_grounds.models import Brewery
+            from around_the_grounds.models import Venue
             from around_the_grounds.scrapers.coordinator import ScrapingError
 
-            error_brewery = Brewery(
+            error_brewery = Venue(
                 key="test-brewery-1",
                 name="Test Brewery 1",
                 url="https://test1.com",
@@ -316,7 +316,7 @@ class TestScrapeActivities:
 
             mock_coordinator.scrape_one = AsyncMock(return_value=([], mock_error))
 
-            result = await activities.scrape_single_brewery(mock_brewery_configs[0])
+            result = await activities.scrape_single_venue(mock_venue_configs[0])
 
             assert result["events"] == []
             assert result["error"] is not None
@@ -361,7 +361,7 @@ class TestDeploymentActivities:
                 "total_events": 2,
                 "updated": "2025-07-06T00:00:00",
                 "errors": [
-                    "Failed to fetch information for brewery: Test Brewery 1"
+                    "Failed to fetch information for brewery: Test Venue 1"
                 ],
             }
             mock_generate.return_value = mock_web_data
@@ -370,7 +370,7 @@ class TestDeploymentActivities:
                 "events": mock_events,
                 "errors": [
                     {
-                        "user_message": "Failed to fetch information for brewery: Test Brewery 1"
+                        "user_message": "Failed to fetch information for brewery: Test Venue 1"
                     }
                 ],
             }
@@ -388,7 +388,7 @@ class TestDeploymentActivities:
 
             assert len(reconstructed_events) == 2
             assert error_messages == [
-                "Failed to fetch information for brewery: Test Brewery 1"
+                "Failed to fetch information for brewery: Test Venue 1"
             ]
 
             # Check first reconstructed event

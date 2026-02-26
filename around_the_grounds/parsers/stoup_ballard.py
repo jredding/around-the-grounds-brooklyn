@@ -16,7 +16,7 @@ from .base import BaseParser
 class StoupBallardParser(BaseParser):
     async def parse(self, session: aiohttp.ClientSession) -> List[Event]:
         try:
-            soup = await self.fetch_page(session, self.brewery.url)
+            soup = await self.fetch_page(session, self.venue.url)
             events = []
 
             if not soup:
@@ -98,8 +98,8 @@ class StoupBallardParser(BaseParser):
                 ):
                     start_time, end_time = self._parse_time(current_date, current_time)
                     event = Event(
-                        venue_key=self.brewery.key,
-                        venue_name=self.brewery.name,
+                        venue_key=self.venue.key,
+                        venue_name=self.venue.name,
                         title=line,
                         date=current_date,
                         start_time=start_time,
@@ -156,8 +156,8 @@ class StoupBallardParser(BaseParser):
                 truck_name = "Unknown"
 
         return Event(
-            venue_key=self.brewery.key,
-            venue_name=self.brewery.name,
+            venue_key=self.venue.key,
+            venue_name=self.venue.name,
             title=truck_name,
             date=date,
             start_time=start_time,
@@ -188,8 +188,8 @@ class StoupBallardParser(BaseParser):
         )
 
         return Event(
-            venue_key=self.brewery.key,
-            venue_name=self.brewery.name,
+            venue_key=self.venue.key,
+            venue_name=self.venue.name,
             title=truck_name,
             date=date,
             start_time=start_time,

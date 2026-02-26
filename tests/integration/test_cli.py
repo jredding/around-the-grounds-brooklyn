@@ -16,7 +16,7 @@ from around_the_grounds.main import (
     scrape_food_trucks,
 )
 from around_the_grounds.config.loader import load_site_config  # noqa: F401 (used in patch)
-from around_the_grounds.models import Brewery, Event
+from around_the_grounds.models import Venue, Event
 from around_the_grounds.scrapers.coordinator import ScrapingError
 
 
@@ -150,7 +150,7 @@ class TestCLI:
         self, sample_cli_events: List[Event]
     ) -> None:
         """Test formatting with both events and errors."""
-        brewery = Brewery("failed-brewery", "Failed Brewery", "https://example.com")
+        brewery = Venue("failed-brewery", "Failed Venue", "https://example.com")
         errors = [
             ScrapingError(brewery, "Network Timeout", "Connection timed out"),
             ScrapingError(brewery, "Parser Error", "Failed to parse HTML"),
@@ -164,12 +164,12 @@ class TestCLI:
         assert "❌ 2 venues failed" in output
         assert "❌ Errors:" in output
         assert (
-            "Failed to fetch information for: Failed Brewery" in output
+            "Failed to fetch information for: Failed Venue" in output
         )
 
     def test_format_events_output_only_errors(self) -> None:
         """Test formatting when only errors occur."""
-        brewery = Brewery("failed-brewery", "Failed Brewery", "https://example.com")
+        brewery = Venue("failed-brewery", "Failed Venue", "https://example.com")
         errors = [ScrapingError(brewery, "Network Error", "Network failed")]
 
         output = format_events_output([], errors)
@@ -177,7 +177,7 @@ class TestCLI:
         assert "❌ No events found - all venues failed" in output
         assert "❌ Errors:" in output
         assert (
-            "Failed to fetch information for: Failed Brewery" in output
+            "Failed to fetch information for: Failed Venue" in output
         )
 
     def test_format_events_output_instagram_fallback(self) -> None:
@@ -250,7 +250,7 @@ class TestCLI:
     @pytest.mark.asyncio
     async def test_scrape_food_trucks_with_errors(self, temp_config_file: str) -> None:
         """Test scraping with some errors."""
-        brewery = Brewery("failed", "Failed", "https://example.com")
+        brewery = Venue("failed", "Failed", "https://example.com")
         errors = [ScrapingError(brewery, "Network Error", "Failed")]
 
         with patch(
@@ -299,7 +299,7 @@ class TestCLI:
 
     def test_main_complete_failure(self, temp_config_file: str, capsys: Any) -> None:
         """Test main function with complete failure."""
-        brewery = Brewery("failed", "Failed", "https://example.com")
+        brewery = Venue("failed", "Failed", "https://example.com")
         errors = [ScrapingError(brewery, "Network Error", "Failed")]
 
         with patch("around_the_grounds.main.scrape_food_trucks") as mock_scrape:
@@ -318,7 +318,7 @@ class TestCLI:
         capsys: Any,
     ) -> None:
         """Test main function with partial failure."""
-        brewery = Brewery("failed", "Failed", "https://example.com")
+        brewery = Venue("failed", "Failed", "https://example.com")
         errors = [ScrapingError(brewery, "Network Error", "Failed")]
 
         with patch("around_the_grounds.main.scrape_food_trucks") as mock_scrape:

@@ -171,8 +171,8 @@ class WheeliePopParser(BaseParser):
         end_time = self._parse_time(article, ".end-time time")
 
         return Event(
-            venue_key=self.brewery.key,
-            venue_name=self.brewery.name,
+            venue_key=self.venue.key,
+            venue_name=self.venue.name,
             title=food_truck_name,
             date=date,
             start_time=start_time,

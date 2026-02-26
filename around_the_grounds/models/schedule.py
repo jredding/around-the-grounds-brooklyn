@@ -23,7 +23,3 @@ class Event:
                 time_str += f"-{self.end_time.strftime('%H:%M')}"
 
         return f"{date_str}{time_str}: {self.title} @ {self.venue_name}"
-
-
-# Backward-compat alias
-FoodTruckEvent = Event

@@ -14,7 +14,7 @@ import pytest
 from aioresponses import aioresponses
 from freezegun import freeze_time
 
-from around_the_grounds.models import Brewery
+from around_the_grounds.models import Venue
 from around_the_grounds.parsers.bale_breaker import BaleBreakerParser
 
 
@@ -22,9 +22,9 @@ class TestBaleBreakerParser:
     """Test the BaleBreakerParser class."""
 
     @pytest.fixture
-    def brewery(self) -> Brewery:
+    def brewery(self) -> Venue:
         """Create a test brewery for Bale Breaker."""
-        return Brewery(
+        return Venue(
             key="yonder-balebreaker",
             name="Yonder Cider & Bale Breaker - Ballard",
             url="https://www.bbycballard.com/food-trucks-1-1",
@@ -32,7 +32,7 @@ class TestBaleBreakerParser:
         )
 
     @pytest.fixture
-    def parser(self, brewery: Brewery) -> BaleBreakerParser:
+    def parser(self, brewery: Venue) -> BaleBreakerParser:
         """Create a parser instance."""
         return BaleBreakerParser(brewery)
 
@@ -81,7 +81,7 @@ class TestBaleBreakerParser:
         """Test successful parsing with API data."""
         with aioresponses() as m:
             # Mock the main page request
-            m.get(parser.brewery.url, status=200, body=sample_html_with_calendar)
+            m.get(parser.venue.url, status=200, body=sample_html_with_calendar)
 
             # Mock the API requests for different months (using current format MMMM-YYYY)
             base_api_url = "https://www.bbycballard.com/api/open/GetItemsByMonth"
@@ -108,7 +108,7 @@ class TestBaleBreakerParser:
         html_without_calendar = "<html><body><p>No calendar here</p></body></html>"
 
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body=html_without_calendar)
+            m.get(parser.venue.url, status=200, body=html_without_calendar)
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
@@ -126,7 +126,7 @@ class TestBaleBreakerParser:
         """Test fallback when API requests fail."""
         with aioresponses() as m:
             # Mock successful main page request
-            m.get(parser.brewery.url, status=200, body=sample_html_with_calendar)
+            m.get(parser.venue.url, status=200, body=sample_html_with_calendar)
 
             # Mock failing API requests (using current format MMMM-YYYY)
             base_api_url = "https://www.bbycballard.com/api/open/GetItemsByMonth"
@@ -147,7 +147,7 @@ class TestBaleBreakerParser:
     ) -> None:
         """Test handling of network errors with fallback."""
         with aioresponses() as m:
-            m.get(parser.brewery.url, exception=aiohttp.ClientError("Network error"))
+            m.get(parser.venue.url, exception=aiohttp.ClientError("Network error"))
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
@@ -291,7 +291,7 @@ class TestBaleBreakerParser:
             real_html = fixture_path.read_text()
 
             with aioresponses() as m:
-                m.get(parser.brewery.url, status=200, body=real_html)
+                m.get(parser.venue.url, status=200, body=real_html)
 
                 # Mock API responses since we can't make real API calls in tests (using current format MMMM-YYYY)
                 base_api_url = "https://www.bbycballard.com/api/open/GetItemsByMonth"

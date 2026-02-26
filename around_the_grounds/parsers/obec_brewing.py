@@ -12,7 +12,7 @@ from .base import BaseParser
 class ObecBrewingParser(BaseParser):
     async def parse(self, session: aiohttp.ClientSession) -> List[Event]:
         try:
-            soup = await self.fetch_page(session, self.brewery.url)
+            soup = await self.fetch_page(session, self.venue.url)
             events = []
 
             if not soup:
@@ -23,7 +23,7 @@ class ObecBrewingParser(BaseParser):
 
             # Use the regex pattern from config to find food truck information
             # Pattern: "Food truck:\s*([^0-9]+)\s*([0-9:]+\s*-\s*[0-9:]+)"
-            parser_config = self.brewery.parser_config or {}
+            parser_config = self.venue.parser_config or {}
             pattern = parser_config.get(
                 "pattern", r"Food truck:\s*([^0-9]+)\s*([0-9:]+\s*-\s*[0-9:]+)"
             )
@@ -42,8 +42,8 @@ class ObecBrewingParser(BaseParser):
                 )
 
                 event = Event(
-                    venue_key=self.brewery.key,
-                    venue_name=self.brewery.name,
+                    venue_key=self.venue.key,
+                    venue_name=self.venue.name,
                     title=truck_name,
                     date=today,
                     start_time=start_time,

@@ -2,11 +2,11 @@
 
 from datetime import datetime
 
-from around_the_grounds.models import Venue, Event, Brewery, FoodTruckEvent
+from around_the_grounds.models import Venue, Event
 
 
 class TestVenue:
-    """Test the Venue model (formerly Brewery)."""
+    """Test the Venue model."""
 
     def test_venue_creation(self) -> None:
         """Test basic venue creation."""
@@ -51,15 +51,9 @@ class TestVenue:
         assert venue1 == venue2
         assert venue1 != venue3
 
-    def test_brewery_alias(self) -> None:
-        """Test that Brewery is an alias for Venue."""
-        assert Brewery is Venue
-        b = Brewery(key="k", name="n", url="u")
-        assert isinstance(b, Venue)
-
 
 class TestEvent:
-    """Test the Event model (formerly FoodTruckEvent)."""
+    """Test the Event model."""
 
     def test_event_creation(self) -> None:
         """Test basic event creation."""
@@ -126,20 +120,3 @@ class TestEvent:
         str_repr = str(event)
         assert "Test Show" in str_repr
         assert "Test Venue" in str_repr
-
-    def test_food_truck_event_alias(self) -> None:
-        """Test that FoodTruckEvent is an alias for Event."""
-        assert FoodTruckEvent is Event
-        e = FoodTruckEvent(
-            venue_key="k", venue_name="n", title="t", date=datetime.now()
-        )
-        assert isinstance(e, Event)
-
-
-# Legacy test class names kept for backward compat
-class TestBrewery(TestVenue):
-    pass
-
-
-class TestFoodTruckEvent(TestEvent):
-    pass

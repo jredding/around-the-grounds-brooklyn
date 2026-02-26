@@ -7,7 +7,7 @@ from typing import Any, AsyncGenerator, Dict
 import aiohttp
 import pytest
 
-from around_the_grounds.models import Venue, Event, Brewery, FoodTruckEvent
+from around_the_grounds.models import Venue, Event
 
 
 @pytest.fixture

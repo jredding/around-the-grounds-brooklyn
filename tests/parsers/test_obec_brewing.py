@@ -7,7 +7,7 @@ import aiohttp
 import pytest
 from aioresponses import aioresponses
 
-from around_the_grounds.models import Brewery
+from around_the_grounds.models import Venue
 from around_the_grounds.parsers.obec_brewing import ObecBrewingParser
 
 
@@ -15,9 +15,9 @@ class TestObecBrewingParser:
     """Test the ObecBrewingParser class."""
 
     @pytest.fixture
-    def brewery(self) -> Brewery:
+    def brewery(self) -> Venue:
         """Create a test brewery for Obec Brewing."""
-        return Brewery(
+        return Venue(
             key="obec-brewing",
             name="Obec Brewing",
             url="https://obecbrewing.com/",
@@ -28,7 +28,7 @@ class TestObecBrewingParser:
         )
 
     @pytest.fixture
-    def parser(self, brewery: Brewery) -> ObecBrewingParser:
+    def parser(self, brewery: Venue) -> ObecBrewingParser:
         """Create a parser instance."""
         return ObecBrewingParser(brewery)
 
@@ -52,7 +52,7 @@ class TestObecBrewingParser:
         """
 
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body=html_content)
+            m.get(parser.venue.url, status=200, body=html_content)
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
@@ -88,7 +88,7 @@ class TestObecBrewingParser:
         """
 
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body=html_content)
+            m.get(parser.venue.url, status=200, body=html_content)
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
@@ -117,7 +117,7 @@ class TestObecBrewingParser:
         """
 
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body=html_content)
+            m.get(parser.venue.url, status=200, body=html_content)
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
@@ -138,7 +138,7 @@ class TestObecBrewingParser:
         """
 
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body=html_content)
+            m.get(parser.venue.url, status=200, body=html_content)
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
@@ -159,7 +159,7 @@ class TestObecBrewingParser:
         """
 
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body=html_content)
+            m.get(parser.venue.url, status=200, body=html_content)
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
@@ -179,7 +179,7 @@ class TestObecBrewingParser:
         """
 
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body=html_content)
+            m.get(parser.venue.url, status=200, body=html_content)
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
@@ -195,8 +195,8 @@ class TestObecBrewingParser:
     async def test_parse_custom_pattern(self, parser: ObecBrewingParser) -> None:
         """Test parsing with custom regex pattern from config."""
         # Update parser config to use a different pattern
-        if parser.brewery.parser_config is not None:
-            parser.brewery.parser_config["pattern"] = (
+        if parser.venue.parser_config is not None:
+            parser.venue.parser_config["pattern"] = (
                 r"Today.*?([A-Za-z\s]+?)\s+(\d+:\d+\s*-\s*\d+:\d+)"
             )
 
@@ -209,7 +209,7 @@ class TestObecBrewingParser:
         """
 
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body=html_content)
+            m.get(parser.venue.url, status=200, body=html_content)
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
@@ -311,7 +311,7 @@ class TestObecBrewingParser:
     async def test_parse_network_error(self, parser: ObecBrewingParser) -> None:
         """Test handling of network errors."""
         with aioresponses() as m:
-            m.get(parser.brewery.url, exception=aiohttp.ClientError("Network error"))
+            m.get(parser.venue.url, exception=aiohttp.ClientError("Network error"))
 
             async with aiohttp.ClientSession() as session:
                 with pytest.raises(
@@ -323,7 +323,7 @@ class TestObecBrewingParser:
     async def test_parse_http_error(self, parser: ObecBrewingParser) -> None:
         """Test handling of HTTP errors."""
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=404)
+            m.get(parser.venue.url, status=404)
 
             async with aiohttp.ClientSession() as session:
                 with pytest.raises(
@@ -335,7 +335,7 @@ class TestObecBrewingParser:
     async def test_parse_empty_response(self, parser: ObecBrewingParser) -> None:
         """Test handling of empty response."""
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body="")
+            m.get(parser.venue.url, status=200, body="")
 
             async with aiohttp.ClientSession() as session:
                 with pytest.raises(
@@ -363,7 +363,7 @@ class TestObecBrewingParser:
         """
 
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body=html_content)
+            m.get(parser.venue.url, status=200, body=html_content)
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)
@@ -385,7 +385,7 @@ class TestObecBrewingParser:
         """
 
         with aioresponses() as m:
-            m.get(parser.brewery.url, status=200, body=html_content)
+            m.get(parser.venue.url, status=200, body=html_content)
 
             async with aiohttp.ClientSession() as session:
                 events = await parser.parse(session)

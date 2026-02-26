@@ -76,7 +76,7 @@ class ScrapeActivities:
 
     @activity.defn
     async def scrape_food_trucks(
-        self, brewery_configs: List[Dict[str, Any]]
+        self, venue_configs: List[Dict[str, Any]]
     ) -> Tuple[List[Dict[str, Any]], List[Dict[str, str]]]:
         """Scrape event data from all venues."""
         # Convert dicts back to Venue objects
@@ -88,7 +88,7 @@ class ScrapeActivities:
                 source_type=config.get("source_type", "html"),
                 parser_config=config.get("parser_config", {}),
             )
-            for config in brewery_configs
+            for config in venue_configs
         ]
 
         coordinator = ScraperCoordinator()
@@ -107,16 +107,16 @@ class ScrapeActivities:
         return serialized_events, serialized_errors
 
     @activity.defn
-    async def scrape_single_brewery(
-        self, brewery_config: Dict[str, Any]
+    async def scrape_single_venue(
+        self, venue_config: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Scrape one venue and return serialized events and optional error."""
         venue = Venue(
-            key=brewery_config["key"],
-            name=brewery_config["name"],
-            url=brewery_config["url"],
-            source_type=brewery_config.get("source_type", "html"),
-            parser_config=brewery_config.get("parser_config", {}),
+            key=venue_config["key"],
+            name=venue_config["name"],
+            url=venue_config["url"],
+            source_type=venue_config.get("source_type", "html"),
+            parser_config=venue_config.get("parser_config", {}),
         )
 
         coordinator = ScraperCoordinator(max_concurrent=1)
@@ -140,18 +140,10 @@ class DeploymentActivities:
         # Reconstruct events and use existing generate_web_data function
         reconstructed_events = []
         for event_data in events_data:
-            # Support both old (brewery_key/food_truck_name) and new (venue_key/title) keys
-            venue_key = event_data.get("venue_key") or event_data.get("brewery_key", "")
-            venue_name = event_data.get("venue_name") or event_data.get("brewery_name", "")
-            title = event_data.get("title") or event_data.get("food_truck_name", "")
-            extraction_method = (
-                event_data.get("extraction_method")
-                or ("ai-vision" if event_data.get("ai_generated_name") else "html")
-            )
             event = Event(
-                venue_key=venue_key,
-                venue_name=venue_name,
-                title=title,
+                venue_key=event_data.get("venue_key", ""),
+                venue_name=event_data.get("venue_name", ""),
+                title=event_data.get("title", ""),
                 date=datetime.fromisoformat(event_data["date"]),
                 start_time=(
                     datetime.fromisoformat(event_data["start_time"])
@@ -164,7 +156,7 @@ class DeploymentActivities:
                     else None
                 ),
                 description=event_data.get("description"),
-                extraction_method=extraction_method,
+                extraction_method=event_data.get("extraction_method", "html"),
             )
             reconstructed_events.append(event)
 
@@ -177,10 +169,6 @@ class DeploymentActivities:
                     elif "venue_name" in error and error["venue_name"]:
                         error_messages.append(
                             f"Failed to fetch information for: {error['venue_name']}"
-                        )
-                    elif "brewery_name" in error and error["brewery_name"]:
-                        error_messages.append(
-                            f"Failed to fetch information for: {error['brewery_name']}"
                         )
                 elif isinstance(error, str) and error:
                     error_messages.append(error)

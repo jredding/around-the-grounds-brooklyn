@@ -13,7 +13,3 @@ class Venue:
     def __post_init__(self) -> None:
         if self.parser_config is None:
             self.parser_config = {}
-
-
-# Backward-compat alias
-Brewery = Venue

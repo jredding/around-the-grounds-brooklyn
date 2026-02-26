@@ -25,8 +25,6 @@ class ScrapingError:
         details: Optional[str] = None,
     ) -> None:
         self.venue = venue
-        # Backward-compat alias
-        self.brewery = venue
         self.error_type = error_type
         self.message = message
         self.details = details
