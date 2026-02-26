@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, patch
 import aiohttp
 import pytest
 
-from around_the_grounds.models import Brewery, FoodTruckEvent
+from around_the_grounds.models import Brewery, Event
 from around_the_grounds.scrapers.coordinator import ScraperCoordinator, ScrapingError
 
 
@@ -39,22 +39,22 @@ class TestScraperCoordinator:
         ]
 
     @pytest.fixture
-    def sample_events(self) -> List[FoodTruckEvent]:
+    def sample_events(self) -> List[Event]:
         """Create sample events for testing."""
         future_date = datetime.now() + timedelta(days=2)
         return [
-            FoodTruckEvent(
-                brewery_key="test-brewery-1",
-                brewery_name="Test Brewery 1",
-                food_truck_name="Test Truck 1",
+            Event(
+                venue_key="test-brewery-1",
+                venue_name="Test Brewery 1",
+                title="Test Truck 1",
                 date=future_date,
                 start_time=future_date.replace(hour=12),
                 end_time=future_date.replace(hour=20),
             ),
-            FoodTruckEvent(
-                brewery_key="test-brewery-2",
-                brewery_name="Test Brewery 2",
-                food_truck_name="Test Truck 2",
+            Event(
+                venue_key="test-brewery-2",
+                venue_name="Test Brewery 2",
+                title="Test Truck 2",
                 date=future_date,
                 start_time=future_date.replace(hour=13),
                 end_time=future_date.replace(hour=21),
@@ -66,7 +66,7 @@ class TestScraperCoordinator:
         self,
         coordinator: ScraperCoordinator,
         test_breweries: List[Brewery],
-        sample_events: List[FoodTruckEvent],
+        sample_events: List[Event],
     ) -> None:
         """Test successful scraping of all breweries."""
         # Mock the parser registry and parsers
@@ -92,8 +92,8 @@ class TestScraperCoordinator:
             events = await coordinator.scrape_all(test_breweries)
 
             assert len(events) == 2
-            assert events[0].brewery_key == "test-brewery-1"
-            assert events[1].brewery_key == "test-brewery-2"
+            assert events[0].venue_key == "test-brewery-1"
+            assert events[1].venue_key == "test-brewery-2"
             assert len(coordinator.get_errors()) == 0
 
     @pytest.mark.asyncio
@@ -101,7 +101,7 @@ class TestScraperCoordinator:
         self,
         coordinator: ScraperCoordinator,
         test_breweries: List[Brewery],
-        sample_events: List[FoodTruckEvent],
+        sample_events: List[Event],
     ) -> None:
         """Test scraping with partial failures."""
         with patch(
@@ -126,7 +126,7 @@ class TestScraperCoordinator:
 
             # Should have one successful event
             assert len(events) == 1
-            assert events[0].brewery_key == "test-brewery-1"
+            assert events[0].venue_key == "test-brewery-1"
 
             # Should have one error
             errors = coordinator.get_errors()
@@ -172,16 +172,16 @@ class TestScraperCoordinator:
             parser_config={},
         )
 
-        future_event = FoodTruckEvent(
-            brewery_key="single-test",
-            brewery_name="Single Test Brewery",
-            food_truck_name="Future Truck",
+        future_event = Event(
+            venue_key="single-test",
+            venue_name="Single Test Brewery",
+            title="Future Truck",
             date=future_date,
         )
-        past_event = FoodTruckEvent(
-            brewery_key="single-test",
-            brewery_name="Single Test Brewery",
-            food_truck_name="Past Truck",
+        past_event = Event(
+            venue_key="single-test",
+            venue_name="Single Test Brewery",
+            title="Past Truck",
             date=past_date,
         )
 
@@ -210,7 +210,7 @@ class TestScraperCoordinator:
 
             assert error is None
             assert len(events) == 1
-            assert events[0].food_truck_name == "Future Truck"
+            assert events[0].title == "Future Truck"
             assert coordinator.get_errors() == []
 
     @pytest.mark.asyncio
@@ -268,7 +268,7 @@ class TestScraperCoordinator:
         self,
         coordinator: ScraperCoordinator,
         test_breweries: List[Brewery],
-        sample_events: List[FoodTruckEvent],
+        sample_events: List[Event],
     ) -> None:
         """Test retry logic that succeeds after initial failure."""
         with patch(
@@ -326,7 +326,7 @@ class TestScraperCoordinator:
         self,
         coordinator: ScraperCoordinator,
         test_breweries: List[Brewery],
-        sample_events: List[FoodTruckEvent],
+        sample_events: List[Event],
     ) -> None:
         """Test that errors in one brewery don't affect others."""
         with patch(
@@ -352,7 +352,7 @@ class TestScraperCoordinator:
 
             # Second brewery should still succeed
             assert len(events) == 1
-            assert events[0].brewery_key == "test-brewery-2"
+            assert events[0].venue_key == "test-brewery-2"
 
             # Should have one error for first brewery
             errors = coordinator.get_errors()
@@ -366,30 +366,30 @@ class TestScraperCoordinator:
     ) -> None:
         """Test event filtering and sorting."""
         now = datetime.now()
-        past_event = FoodTruckEvent(
-            brewery_key="test",
-            brewery_name="Test",
-            food_truck_name="Past Event",
+        past_event = Event(
+            venue_key="test",
+            venue_name="Test",
+            title="Past Event",
             date=now - timedelta(days=1),  # Yesterday
         )
-        future_event_1 = FoodTruckEvent(
-            brewery_key="test",
-            brewery_name="Test",
-            food_truck_name="Future Event 1",
+        future_event_1 = Event(
+            venue_key="test",
+            venue_name="Test",
+            title="Future Event 1",
             date=now + timedelta(days=2),  # Day after tomorrow
             start_time=now + timedelta(days=2, hours=12),
         )
-        future_event_2 = FoodTruckEvent(
-            brewery_key="test",
-            brewery_name="Test",
-            food_truck_name="Future Event 2",
+        future_event_2 = Event(
+            venue_key="test",
+            venue_name="Test",
+            title="Future Event 2",
             date=now + timedelta(days=1),  # Tomorrow
             start_time=now + timedelta(days=1, hours=12),
         )
-        far_future_event = FoodTruckEvent(
-            brewery_key="test",
-            brewery_name="Test",
-            food_truck_name="Far Future Event",
+        far_future_event = Event(
+            venue_key="test",
+            venue_name="Test",
+            title="Far Future Event",
             date=now + timedelta(days=10),  # Too far in future
         )
 
@@ -399,10 +399,10 @@ class TestScraperCoordinator:
         # Should only include events within next 7 days, sorted by date
         assert len(filtered_events) == 2
         assert (
-            filtered_events[0].food_truck_name == "Future Event 2"
+            filtered_events[0].title == "Future Event 2"
         )  # Tomorrow (earlier)
         assert (
-            filtered_events[1].food_truck_name == "Future Event 1"
+            filtered_events[1].title == "Future Event 1"
         )  # Day after tomorrow
 
     @pytest.mark.asyncio
@@ -459,7 +459,7 @@ class TestScraperCoordinator:
         """Test ScrapingError creation and properties."""
         brewery = Brewery("test", "Test Brewery", "https://example.com")
         error = ScrapingError(
-            brewery=brewery,
+            venue=brewery,
             error_type="Test Error",
             message="Test message",
             details="Test details",
@@ -503,7 +503,7 @@ class TestScraperCoordinator:
             # Create slow parsers to test concurrency
             async def slow_parse(
                 session: aiohttp.ClientSession,
-            ) -> List[FoodTruckEvent]:
+            ) -> List[Event]:
                 await asyncio.sleep(0.1)  # Simulate slow parsing
                 return []
 

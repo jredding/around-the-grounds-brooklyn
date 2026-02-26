@@ -65,14 +65,14 @@ class TestErrorHandling:
             assert len(coordinator.get_errors()) == 1
             error = coordinator.get_errors()[0]
             assert (
-                error.error_type == "Unexpected Error"
-            )  # This is what the coordinator actually returns
+                error.error_type == "Configuration Error"
+            )  # ValueError from get_parser maps to Configuration Error
 
     def test_scraping_error_properties(self) -> None:
         """Test ScrapingError properties."""
         brewery = Brewery(key="test", name="Test Brewery", url="https://test.com")
         error = ScrapingError(
-            brewery=brewery, error_type="Test Error", message="Test message"
+            venue=brewery, error_type="Test Error", message="Test message"
         )
 
         assert error.brewery.name == "Test Brewery"

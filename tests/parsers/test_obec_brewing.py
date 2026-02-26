@@ -60,9 +60,9 @@ class TestObecBrewingParser:
                 assert len(events) == 1
 
                 event = events[0]
-                assert event.brewery_key == "obec-brewing"
-                assert event.brewery_name == "Obec Brewing"
-                assert event.food_truck_name == "Kaosamai Thai"
+                assert event.venue_key == "obec-brewing"
+                assert event.venue_name == "Obec Brewing"
+                assert event.title == "Kaosamai Thai"
                 assert event.date.month == 7
                 assert event.date.day == 5
                 assert event.start_time is not None
@@ -96,7 +96,7 @@ class TestObecBrewingParser:
                 assert len(events) == 1
 
                 event = events[0]
-                assert event.food_truck_name == "Taco Bell Express"
+                assert event.title == "Taco Bell Express"
                 assert event.start_time is not None
                 assert event.start_time.hour == 12  # 12:30pm
                 assert event.start_time.minute == 30
@@ -145,7 +145,7 @@ class TestObecBrewingParser:
 
                 assert len(events) == 1
                 event = events[0]
-                assert event.food_truck_name == "Pizza Palace"
+                assert event.title == "Pizza Palace"
 
     @pytest.mark.asyncio
     async def test_parse_malformed_time_range(self, parser: ObecBrewingParser) -> None:
@@ -187,7 +187,7 @@ class TestObecBrewingParser:
                 # Should create event but with None times due to invalid time parsing
                 assert len(events) == 1
                 event = events[0]
-                assert event.food_truck_name == "Bad Time Truck"
+                assert event.title == "Bad Time Truck"
                 assert event.start_time is None
                 assert event.end_time is None
 
@@ -217,7 +217,7 @@ class TestObecBrewingParser:
                 assert len(events) == 1
                 event = events[0]
                 # The pattern captures "we have Burger Joint" - let's adjust the test expectation
-                assert "Burger Joint" in event.food_truck_name
+                assert "Burger Joint" in event.title
                 # 11:00 gets converted to 23:00 (11 PM) based on our logic
                 assert event.start_time is not None
                 assert event.start_time.hour == 23
@@ -371,7 +371,7 @@ class TestObecBrewingParser:
                 # Should find only the first match
                 assert len(events) == 1
                 event = events[0]
-                assert event.food_truck_name == "First Truck"
+                assert event.title == "First Truck"
 
     @pytest.mark.asyncio
     async def test_parse_extra_whitespace(self, parser: ObecBrewingParser) -> None:
@@ -392,7 +392,7 @@ class TestObecBrewingParser:
 
                 assert len(events) == 1
                 event = events[0]
-                assert event.food_truck_name == "Whitespace Truck"
+                assert event.title == "Whitespace Truck"
                 assert event.start_time is not None
                 assert event.start_time.hour == 12
                 assert event.end_time is not None

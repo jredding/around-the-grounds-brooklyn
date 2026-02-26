@@ -58,9 +58,9 @@ class TestStoupBallardParser:
 
                 # Check first event
                 event1 = events[0]
-                assert event1.brewery_key == "stoup-ballard"
-                assert event1.brewery_name == "Stoup Brewing - Ballard"
-                assert event1.food_truck_name == "Woodshop BBQ"
+                assert event1.venue_key == "stoup-ballard"
+                assert event1.venue_name == "Stoup Brewing - Ballard"
+                assert event1.title == "Woodshop BBQ"
                 assert event1.date.month == 7
                 assert event1.date.day == 5
                 assert event1.start_time is not None
@@ -70,7 +70,7 @@ class TestStoupBallardParser:
 
                 # Check second event
                 event2 = events[1]
-                assert event2.food_truck_name == "Taco Truck Supreme"
+                assert event2.title == "Taco Truck Supreme"
                 assert event2.date.day == 6
                 assert event2.start_time is not None
                 assert event2.start_time.hour == 12  # 12pm
@@ -133,7 +133,7 @@ class TestStoupBallardParser:
                 # Should still create event but without time info
                 assert len(events) == 1
                 event = events[0]
-                assert event.food_truck_name == "Test Food Truck"
+                assert event.title == "Test Food Truck"
                 assert event.start_time is None
                 assert event.end_time is None
 

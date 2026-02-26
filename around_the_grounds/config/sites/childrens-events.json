@@ -1,0 +1,30 @@
+{
+  "key": "childrens-events",
+  "name": "Brooklyn Children's Events",
+  "template": "kids",
+  "timezone": "America/New_York",
+  "target_repo": "",
+  "generate_description": false,
+  "venues": [
+    {
+      "key": "macaroni-kid",
+      "name": "MacaroniKid Brooklyn NW",
+      "url": "https://brooklynnw.macaronikid.com/events",
+      "source_type": "ajax",
+      "parser_config": {
+        "note": "AJAX endpoint under investigation; may return empty until resolved"
+      }
+    },
+    {
+      "key": "little-kid-big-city",
+      "name": "Little Kid Big City",
+      "url": "https://littlekidbigcity.com",
+      "source_type": "wordpress",
+      "parser_config": {
+        "api_path": "/wp-json/wp/v2/posts",
+        "category_id": 186,
+        "per_page": 20
+      }
+    }
+  ]
+}

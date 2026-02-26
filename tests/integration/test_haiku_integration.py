@@ -5,7 +5,7 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 
 from around_the_grounds.main import generate_web_data, _generate_haiku_for_today
-from around_the_grounds.models import FoodTruckEvent
+from around_the_grounds.models import Event
 
 
 @pytest.fixture
@@ -15,18 +15,18 @@ def sample_events_today() -> list:
 
     today = date.today()
     return [
-        FoodTruckEvent(
-            brewery_key="stoup-ballard",
-            brewery_name="Stoup Brewing",
-            food_truck_name="Georgia's Greek",
+        Event(
+            venue_key="stoup-ballard",
+            venue_name="Stoup Brewing",
+            title="Georgia's Greek",
             date=datetime(today.year, today.month, today.day),
             start_time=datetime(today.year, today.month, today.day, 17, 0),
             end_time=datetime(today.year, today.month, today.day, 21, 0),
         ),
-        FoodTruckEvent(
-            brewery_key="urban-family",
-            brewery_name="Urban Family Brewing",
-            food_truck_name="MomoExpress",
+        Event(
+            venue_key="urban-family",
+            venue_name="Urban Family Brewing",
+            title="MomoExpress",
             date=datetime(today.year, today.month, today.day),
             start_time=datetime(today.year, today.month, today.day, 18, 0),
             end_time=datetime(today.year, today.month, today.day, 22, 0),
@@ -38,10 +38,10 @@ def sample_events_today() -> list:
 def sample_events_future() -> list:
     """Create sample food truck events for future dates."""
     return [
-        FoodTruckEvent(
-            brewery_key="stoup-ballard",
-            brewery_name="Stoup Brewing",
-            food_truck_name="Oskar's Pizza",
+        Event(
+            venue_key="stoup-ballard",
+            venue_name="Stoup Brewing",
+            title="Oskar's Pizza",
             date=datetime(2025, 12, 25),
             start_time=datetime(2025, 12, 25, 17, 0),
             end_time=datetime(2025, 12, 25, 21, 0),
@@ -177,7 +177,7 @@ class TestHaikuIntegration:
         # Verify field values
         assert len(web_data["events"]) == 2
         assert web_data["total_events"] == 2
-        assert web_data["timezone"] == "PT"
+        assert web_data["timezone"] == "America/Los_Angeles"
         assert "Test error" in web_data["errors"]
         assert web_data["haiku"] == "Test haiku"
 

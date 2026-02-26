@@ -4,13 +4,13 @@ from typing import List, Optional, Tuple
 
 import aiohttp
 
-from ..models import FoodTruckEvent
+from ..models import Event
 from ..utils.timezone_utils import now_in_pacific_naive
 from .base import BaseParser
 
 
 class ObecBrewingParser(BaseParser):
-    async def parse(self, session: aiohttp.ClientSession) -> List[FoodTruckEvent]:
+    async def parse(self, session: aiohttp.ClientSession) -> List[Event]:
         try:
             soup = await self.fetch_page(session, self.brewery.url)
             events = []
@@ -41,14 +41,14 @@ class ObecBrewingParser(BaseParser):
                     hour=0, minute=0, second=0, microsecond=0
                 )
 
-                event = FoodTruckEvent(
-                    brewery_key=self.brewery.key,
-                    brewery_name=self.brewery.name,
-                    food_truck_name=truck_name,
+                event = Event(
+                    venue_key=self.brewery.key,
+                    venue_name=self.brewery.name,
+                    title=truck_name,
                     date=today,
                     start_time=start_time,
                     end_time=end_time,
-                    ai_generated_name=False,
+                    extraction_method="html",
                 )
                 events.append(event)
 

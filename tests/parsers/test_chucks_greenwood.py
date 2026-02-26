@@ -61,16 +61,16 @@ class TestChucksGreenwoodParser:
 
                 # Validate results
                 assert len(events) > 0
-                assert all(event.brewery_key == "chucks-greenwood" for event in events)
+                assert all(event.venue_key == "chucks-greenwood" for event in events)
                 assert all(
-                    event.brewery_name == "Chuck's Hop Shop Greenwood"
+                    event.venue_name == "Chuck's Hop Shop Greenwood"
                     for event in events
                 )
-                assert all(event.food_truck_name.strip() != "" for event in events)
+                assert all(event.title.strip() != "" for event in events)
                 assert all(event.date is not None for event in events)
 
                 # Check specific events from sample data
-                event_names = [event.food_truck_name for event in events]
+                event_names = [event.title for event in events]
                 assert "T'Juana" in event_names  # From "Dinner: T'Juana"
                 assert (
                     "Good Morning Tacos" in event_names
@@ -79,8 +79,8 @@ class TestChucksGreenwoodParser:
 
                 # Verify events are only food trucks (no "Geeks Who Drink Trivia" or "Music Bingo")
                 for event in events:
-                    assert "Trivia" not in event.food_truck_name
-                    assert "Bingo" not in event.food_truck_name
+                    assert "Trivia" not in event.title
+                    assert "Bingo" not in event.title
 
     @pytest.mark.asyncio
     @freeze_time("2025-08-05")
@@ -304,9 +304,9 @@ Another,incomplete"""
 
         result = parser._parse_csv_row(row)
         assert result is not None
-        assert result.brewery_key == "chucks-greenwood"
-        assert result.brewery_name == "Chuck's Hop Shop Greenwood"
-        assert result.food_truck_name == "T'Juana"
+        assert result.venue_key == "chucks-greenwood"
+        assert result.venue_name == "Chuck's Hop Shop Greenwood"
+        assert result.title == "T'Juana"
         assert result.date.year == 2025
         assert result.date.month == 8
         assert result.date.day == 1
@@ -445,15 +445,15 @@ Tue,Aug 5,12 AM,to,Tue,Food Truck,Tat's Deli,Wed,Tue,FALSE,TRUE"""
 
                 # Should only have food truck events
                 assert len(events) == 3
-                event_names = [event.food_truck_name for event in events]
+                event_names = [event.title for event in events]
                 assert "T'Juana" in event_names
                 assert "Good Morning Tacos" in event_names
                 assert "Tat's Deli" in event_names
 
                 # Should not have trivia or bingo events
                 for event in events:
-                    assert "Trivia" not in event.food_truck_name
-                    assert "Bingo" not in event.food_truck_name
+                    assert "Trivia" not in event.title
+                    assert "Bingo" not in event.title
 
     @pytest.mark.asyncio
     @freeze_time("2025-12-15")  # Test year rollover scenario

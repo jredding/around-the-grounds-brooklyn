@@ -19,15 +19,22 @@ except ImportError:
     # dotenv is optional, fall back to os.environ
     pass
 
+from .config.loader import load_all_sites, load_site_config, load_site_from_path
 from .config.settings import get_git_repository_url
-from .models import Brewery, FoodTruckEvent
+from .models import Venue, Event, SiteConfig
 from .scrapers.coordinator import ScraperCoordinator, ScrapingError
 from .utils.haiku_generator import HaikuGenerator
 from .utils.timezone_utils import format_time_with_timezone
 
+# ---------------------------------------------------------------------------
+# Backward-compat shim: load_brewery_config still works for existing callers
+# (temporal activities, tests, etc.)
+# ---------------------------------------------------------------------------
+from .models import Brewery, FoodTruckEvent  # noqa: F401 (re-export)
 
-def load_brewery_config(config_path: Optional[str] = None) -> List[Brewery]:
-    """Load brewery configuration from JSON file."""
+
+def load_brewery_config(config_path: Optional[str] = None) -> List[Venue]:
+    """Load venue configuration from JSON file (backward compat, reads breweries.json)."""
     if config_path is None:
         config_path_obj = Path(__file__).parent / "config" / "breweries.json"
     else:
@@ -39,28 +46,29 @@ def load_brewery_config(config_path: Optional[str] = None) -> List[Brewery]:
     with open(config_path_obj, "r") as f:
         config = json.load(f)
 
-    breweries = []
-    for brewery_data in config.get("breweries", []):
-        brewery = Brewery(
-            key=brewery_data["key"],
-            name=brewery_data["name"],
-            url=brewery_data["url"],
-            parser_config=brewery_data.get("parser_config", {}),
+    venues = []
+    for venue_data in config.get("breweries", []):
+        venue = Venue(
+            key=venue_data["key"],
+            name=venue_data["name"],
+            url=venue_data["url"],
+            source_type=venue_data.get("source_type", "html"),
+            parser_config=venue_data.get("parser_config", {}),
         )
-        breweries.append(brewery)
+        venues.append(venue)
 
-    return breweries
+    return venues
 
 
 def format_events_output(
-    events: List[FoodTruckEvent], errors: Optional[List[ScrapingError]] = None
+    events: List[Event], errors: Optional[List[ScrapingError]] = None
 ) -> str:
     """Format events and errors for display."""
     output = []
 
     # Show events
     if events:
-        output.append(f"Found {len(events)} food truck events:")
+        output.append(f"Found {len(events)} events:")
         output.append("")
 
         current_date = None
@@ -80,23 +88,22 @@ def format_events_output(
                     time_str += f" - {event.end_time.strftime('%I:%M %p')}"
 
             # Check if this is an error event (fallback)
-            if "Check Instagram" in event.food_truck_name or "check Instagram" in (
+            if "Check Instagram" in event.title or "check Instagram" in (
                 event.description or ""
             ):
                 output.append(
-                    f"  ❌ {event.food_truck_name} @ {event.brewery_name}{time_str}"
+                    f"  ❌ {event.title} @ {event.venue_name}{time_str}"
                 )
                 if event.description:
                     output.append(f"     {event.description}")
             else:
-                # Add AI vision indicator for AI-generated names
-                if event.ai_generated_name:
+                if event.extraction_method == "ai-vision":
                     output.append(
-                        f"  🚚 {event.food_truck_name} 🖼️🤖 @ {event.brewery_name}{time_str}"
+                        f"  🎫 {event.title} 🖼️🤖 @ {event.venue_name}{time_str}"
                     )
                 else:
                     output.append(
-                        f"  🚚 {event.food_truck_name} @ {event.brewery_name}{time_str}"
+                        f"  🎫 {event.title} @ {event.venue_name}{time_str}"
                     )
                 if event.description:
                     output.append(f"     {event.description}")
@@ -109,9 +116,9 @@ def format_events_output(
             output.append("")
             output.append("⚠️  Processing Summary:")
             output.append(f"✅ {len(events)} events found successfully")
-            output.append(f"❌ {len(errors)} breweries failed")
+            output.append(f"❌ {len(errors)} venues failed")
         else:
-            output.append("❌ No events found - all breweries failed")
+            output.append("❌ No events found - all venues failed")
 
         output.append("")
         output.append("❌ Errors:")
@@ -119,56 +126,76 @@ def format_events_output(
             output.append(f"  • {message}")
 
     if not events and not errors:
-        output.append("No food truck events found for the next 7 days.")
+        output.append("No events found for the next 7 days.")
 
     return "\n".join(output)
 
 
-async def _generate_haiku_for_today(events: List[FoodTruckEvent]) -> Optional[str]:
-    """Generate a haiku for today's food truck events."""
+async def _generate_description_for_today(
+    events: List[Event], site: SiteConfig
+) -> Optional[str]:
+    """Generate a haiku for today's events (only if site.generate_description is True)."""
+    if not site.generate_description:
+        return None
     try:
-        # Get today's date in Pacific timezone
         from .utils.timezone_utils import now_in_pacific_naive
 
         today_pacific = now_in_pacific_naive()
         today = today_pacific.date()
 
-        # Filter events to only today's date
         today_events = [event for event in events if event.date.date() == today]
 
         if not today_events:
             logging.getLogger(__name__).debug("No events for today to generate haiku")
             return None
 
-        # Initialize haiku generator and generate haiku
         haiku_generator = HaikuGenerator()
         haiku = await haiku_generator.generate_haiku(
-            today_pacific, today_events, max_retries=2
+            today_pacific, today_events, max_retries=2, site_name=site.name
         )
 
         return haiku
 
     except Exception as e:
-        # Log error but don't fail deployment
         logging.getLogger(__name__).warning(
-            f"Failed to generate haiku, continuing without it: {e}"
+            f"Failed to generate description, continuing without it: {e}"
         )
         return None
 
 
+async def _generate_haiku_for_today(events: List[Event]) -> Optional[str]:
+    """Backward-compat wrapper: generate haiku without site context."""
+    from .models.site import SiteConfig
+
+    dummy_site = SiteConfig(
+        key="default",
+        name="Food Trucks",
+        template="food-trucks",
+        timezone="America/Los_Angeles",
+        venues=[],
+        generate_description=True,
+    )
+    return await _generate_description_for_today(events, dummy_site)
+
+
 async def generate_web_data(
-    events: List[FoodTruckEvent], error_messages: Optional[List[str]] = None
+    events: List[Event],
+    error_messages: Optional[List[str]] = None,
+    site: Optional[SiteConfig] = None,
 ) -> dict:
-    """Generate web-friendly JSON data from events with Pacific timezone information."""
+    """Generate web-friendly JSON data from events."""
     web_events = []
+    tz_label = "PT"
+    tz_note = "All event times are in Pacific Time (PT)."
+    site_name = site.name if site else "Events"
+    site_key = site.key if site else "events"
+    site_tz = site.timezone if site else "America/Los_Angeles"
 
     for event in events:
-        # Convert event to web format with Pacific timezone indicators
         web_event = {
             "date": event.date.isoformat(),
-            "vendor": event.food_truck_name,
-            "location": event.brewery_name,
-            # Format times with Pacific timezone indicators
+            "title": event.title,
+            "venue": event.venue_name,
             "start_time": (
                 format_time_with_timezone(event.start_time, include_timezone=True)
                 if event.start_time
@@ -179,7 +206,6 @@ async def generate_web_data(
                 if event.end_time
                 else None
             ),
-            # Also include raw time strings without timezone for backward compatibility
             "start_time_raw": (
                 event.start_time.strftime("%I:%M %p").lstrip("0")
                 if event.start_time
@@ -191,52 +217,80 @@ async def generate_web_data(
                 else None
             ),
             "description": event.description,
-            "timezone": "PT",  # Explicit timezone indicator
+            "extraction_method": event.extraction_method,
+            # Legacy keys for backward compat with existing templates
+            "vendor": (
+                f"{event.title} 🖼️🤖"
+                if event.extraction_method == "ai-vision"
+                else event.title
+            ),
+            "location": event.venue_name,
         }
-
-        # Add AI extraction indicator
-        if event.ai_generated_name:
-            web_event["extraction_method"] = "vision"
-            web_event["vendor"] = f"{event.food_truck_name} 🖼️🤖"
-
         web_events.append(web_event)
 
     unique_error_messages = list(dict.fromkeys(error_messages or []))
 
-    # Generate haiku for today's food trucks
-    haiku = await _generate_haiku_for_today(events)
+    # Generate description if site opts in
+    description = None
+    if site:
+        description = await _generate_description_for_today(events, site)
+    else:
+        # Legacy path: try to generate haiku without site context
+        try:
+            from .utils.timezone_utils import now_in_pacific_naive
+
+            today_pacific = now_in_pacific_naive()
+            today = today_pacific.date()
+            today_events = [e for e in events if e.date.date() == today]
+            if today_events:
+                haiku_generator = HaikuGenerator()
+                description = await haiku_generator.generate_haiku(
+                    today_pacific, today_events, max_retries=2
+                )
+        except Exception:
+            pass
 
     return {
         "events": web_events,
         "updated": datetime.now(timezone.utc).isoformat(),
         "total_events": len(web_events),
-        "timezone": "PT",  # Global timezone indicator
-        "timezone_note": "All event times are in Pacific Time (PT), which includes both PST and PDT depending on the date.",
+        "site_name": site_name,
+        "site_key": site_key,
+        "timezone": site_tz,
+        "timezone_note": tz_note,
         "errors": unique_error_messages,
-        "haiku": haiku,  # AI-generated haiku for today's trucks
+        "haiku": description,
     }
 
 
 async def deploy_to_web(
-    events: List[FoodTruckEvent],
+    events: List[Event],
     errors: Optional[List[ScrapingError]] = None,
     git_repo_url: Optional[str] = None,
+    site: Optional[SiteConfig] = None,
 ) -> bool:
     """Generate web data and deploy to Vercel via git."""
     try:
-        # Get repository URL with fallback chain
-        repository_url = get_git_repository_url(git_repo_url)
+        # Determine target repo
+        repo_url = git_repo_url
+        if not repo_url and site and site.target_repo:
+            repo_url = site.target_repo
+        repository_url = get_git_repository_url(repo_url)
 
-        # Generate web data
         error_messages = [error.to_user_message() for error in errors or []]
         error_messages = list(dict.fromkeys(error_messages))
-        web_data = await generate_web_data(events, error_messages)
+        web_data = await generate_web_data(events, error_messages, site)
 
         print(f"✅ Generated web data: {len(events)} events")
         print(f"📍 Target repository: {repository_url}")
 
-        # Use GitHub App authentication for deployment (like Temporal workflow)
-        return _deploy_with_github_auth(web_data, repository_url)
+        # Determine template directory
+        if site:
+            template_dir_name = site.template
+        else:
+            template_dir_name = "food-trucks"
+
+        return _deploy_with_github_auth(web_data, repository_url, template_dir_name)
 
     except subprocess.CalledProcessError as e:
         print(f"❌ Deployment failed: {e}")
@@ -246,7 +300,9 @@ async def deploy_to_web(
         return False
 
 
-def _deploy_with_github_auth(web_data: dict, repository_url: str) -> bool:
+def _deploy_with_github_auth(
+    web_data: dict, repository_url: str, template_dir_name: str = "food-trucks"
+) -> bool:
     """Deploy web data to git repository using GitHub App authentication."""
     import shutil
     import tempfile
@@ -256,11 +312,9 @@ def _deploy_with_github_auth(web_data: dict, repository_url: str) -> bool:
     try:
         print("🔐 Using GitHub App authentication for deployment...")
 
-        # Create temporary directory for git operations
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_dir = Path(temp_dir) / "repo"
 
-            # Clone the repository
             print(f"📥 Cloning repository {repository_url}...")
             subprocess.run(
                 ["git", "clone", repository_url, str(repo_dir)],
@@ -268,7 +322,6 @@ def _deploy_with_github_auth(web_data: dict, repository_url: str) -> bool:
                 capture_output=True,
             )
 
-            # Configure git user in the cloned repository
             subprocess.run(
                 ["git", "config", "user.email", "steve.androulakis@gmail.com"],
                 cwd=repo_dir,
@@ -282,26 +335,26 @@ def _deploy_with_github_auth(web_data: dict, repository_url: str) -> bool:
                 capture_output=True,
             )
 
-            # Copy template files from public_template to cloned repo
-            public_template_dir = Path.cwd() / "public_template"
+            # Copy template files — try new multi-template path first, fall back to legacy
+            public_templates_dir = Path.cwd() / "public_templates" / template_dir_name
+            if not public_templates_dir.exists():
+                public_templates_dir = Path.cwd() / "public_template"
+
             target_public_dir = repo_dir / "public"
 
-            print(f"📋 Copying template files from {public_template_dir}...")
-            shutil.copytree(public_template_dir, target_public_dir, dirs_exist_ok=True)
+            print(f"📋 Copying template files from {public_templates_dir}...")
+            shutil.copytree(public_templates_dir, target_public_dir, dirs_exist_ok=True)
 
-            # Write generated web data to cloned repository
             json_path = target_public_dir / "data.json"
             with open(json_path, "w") as f:
                 json.dump(web_data, f, indent=2)
 
             print(f"📝 Updated data.json with {web_data.get('total_events', 0)} events")
 
-            # Add all files in public directory
             subprocess.run(
                 ["git", "add", "public/"], cwd=repo_dir, check=True, capture_output=True
             )
 
-            # Check if there are changes to commit
             result = subprocess.run(
                 ["git", "diff", "--staged", "--quiet"],
                 cwd=repo_dir,
@@ -311,8 +364,8 @@ def _deploy_with_github_auth(web_data: dict, repository_url: str) -> bool:
                 print("ℹ️  No changes to deploy")
                 return True
 
-            # Commit changes
-            commit_msg = f"🚚 Update food truck data - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            site_name = web_data.get("site_name", "Events")
+            commit_msg = f"📅 Update {site_name} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
             subprocess.run(
                 ["git", "commit", "-m", commit_msg],
                 cwd=repo_dir,
@@ -320,7 +373,6 @@ def _deploy_with_github_auth(web_data: dict, repository_url: str) -> bool:
                 capture_output=True,
             )
 
-            # Set up GitHub App authentication and configure remote
             auth = GitHubAppAuth(repository_url)
             access_token = auth.get_access_token()
 
@@ -332,7 +384,6 @@ def _deploy_with_github_auth(web_data: dict, repository_url: str) -> bool:
                 capture_output=True,
             )
 
-            # Push to origin
             print(f"🚀 Pushing to {repository_url}...")
             subprocess.run(
                 ["git", "push", "origin", "main"],
@@ -354,35 +405,40 @@ def _deploy_with_github_auth(web_data: dict, repository_url: str) -> bool:
 
 
 async def preview_locally(
-    events: List[FoodTruckEvent], errors: Optional[List[ScrapingError]] = None
+    events: List[Event],
+    errors: Optional[List[ScrapingError]] = None,
+    site: Optional[SiteConfig] = None,
 ) -> bool:
     """Generate web files locally in public/ directory for preview."""
     import shutil
 
     try:
-        # Generate web data
         error_messages = [error.to_user_message() for error in errors or []]
         error_messages = list(dict.fromkeys(error_messages))
-        web_data = await generate_web_data(events, error_messages)
+        web_data = await generate_web_data(events, error_messages, site)
 
-        # Set up paths
-        public_template_dir = Path.cwd() / "public_template"
+        # Determine template directory
+        if site:
+            template_dir_name = site.template
+        else:
+            template_dir_name = "food-trucks"
+
+        public_templates_dir = Path.cwd() / "public_templates" / template_dir_name
+        if not public_templates_dir.exists():
+            public_templates_dir = Path.cwd() / "public_template"
+
         local_public_dir = Path.cwd() / "public"
 
-        # Ensure public_template exists
-        if not public_template_dir.exists():
-            print(f"❌ Template directory not found: {public_template_dir}")
+        if not public_templates_dir.exists():
+            print(f"❌ Template directory not found: {public_templates_dir}")
             return False
 
-        # Create or clear public directory
         if local_public_dir.exists():
             shutil.rmtree(local_public_dir)
 
-        # Copy template files to public/
-        print(f"📋 Copying template files from {public_template_dir}...")
-        shutil.copytree(public_template_dir, local_public_dir)
+        print(f"📋 Copying template files from {public_templates_dir}...")
+        shutil.copytree(public_templates_dir, local_public_dir)
 
-        # Write generated web data to local public directory
         json_path = local_public_dir / "data.json"
         with open(json_path, "w") as f:
             json.dump(web_data, f, indent=2)
@@ -399,52 +455,126 @@ async def preview_locally(
         return False
 
 
-async def scrape_food_trucks(config_path: Optional[str] = None) -> tuple:
-    """Scrape food truck schedules from all configured breweries."""
-    breweries = load_brewery_config(config_path)
-
-    if not breweries:
-        print("No breweries configured.")
+async def scrape_site(site: SiteConfig) -> tuple:
+    """Scrape events for a given site config."""
+    if not site.venues:
         return [], []
 
     coordinator = ScraperCoordinator()
-    events = await coordinator.scrape_all(breweries)
+    events = await coordinator.scrape_all(site.venues, timezone=site.timezone)
+    errors = coordinator.get_errors()
+
+    return events, errors
+
+
+async def scrape_food_trucks(config_path: Optional[str] = None) -> tuple:
+    """Backward-compat wrapper: scrape using breweries.json or a given path."""
+    venues = load_brewery_config(config_path)
+
+    if not venues:
+        print("No venues configured.")
+        return [], []
+
+    coordinator = ScraperCoordinator()
+    events = await coordinator.scrape_all(venues)
     errors = coordinator.get_errors()
 
     return events, errors
 
 
 async def async_main(args: argparse.Namespace) -> int:
-    """Async main entry point that handles all async operations."""
-    events, errors = await scrape_food_trucks(args.config)
-    output = format_events_output(events, errors)
-    print(output)
+    """Async main entry point."""
+    site_key: Optional[str] = getattr(args, "site", None)
+    config_path: Optional[str] = getattr(args, "config", None)
 
-    # Deploy to web if requested
-    if args.deploy and events:
-        await deploy_to_web(events, errors, args.git_repo)
+    # Determine which sites to run
+    sites: List[SiteConfig] = []
 
-    # Generate local preview if requested
-    if args.preview and events:
-        await preview_locally(events, errors)
-
-    # Return appropriate exit code
-    if errors and not events:
-        return 1  # Complete failure
-    elif errors:
-        return 2  # Partial success
+    if config_path:
+        # Legacy --config path: load a single site or fall back to old breweries.json
+        config_p = Path(config_path)
+        try:
+            site = load_site_from_path(config_p)
+            sites = [site]
+        except (FileNotFoundError, KeyError):
+            # It's a breweries.json style config — wrap it
+            events, errors = await scrape_food_trucks(config_path)
+            output = format_events_output(events, errors)
+            print(output)
+            if args.deploy and events:
+                await deploy_to_web(events, errors, getattr(args, "git_repo", None))
+            if args.preview and events:
+                await preview_locally(events, errors)
+            return 0 if not errors else (1 if not events else 2)
+    elif site_key == "all":
+        sites = load_all_sites()
+        if not sites:
+            print("No site configs found in config/sites/")
+            return 1
+    elif site_key:
+        try:
+            sites = [load_site_config(site_key)]
+        except FileNotFoundError:
+            print(f"❌ Site '{site_key}' not found in config/sites/")
+            return 1
     else:
-        return 0  # Complete success
+        # Default: ballard-food-trucks (backward compat)
+        try:
+            sites = [load_site_config("ballard-food-trucks")]
+        except FileNotFoundError:
+            # Fall back to old breweries.json
+            events, errors = await scrape_food_trucks()
+            output = format_events_output(events, errors)
+            print(output)
+            if args.deploy and events:
+                await deploy_to_web(events, errors, getattr(args, "git_repo", None))
+            if args.preview and events:
+                await preview_locally(events, errors)
+            return 0 if not errors else (1 if not events else 2)
+
+    overall_exit = 0
+    for site in sites:
+        if len(sites) > 1:
+            print(f"\n{'='*50}")
+            print(f"🌐 {site.name}")
+            print("=" * 50)
+
+        events, errors = await scrape_site(site)
+        output = format_events_output(events, errors)
+        print(output)
+
+        if args.deploy and events:
+            await deploy_to_web(
+                events, errors, getattr(args, "git_repo", None), site=site
+            )
+
+        if args.preview:
+            await preview_locally(events, errors, site=site)
+
+        if errors and not events:
+            overall_exit = 1
+        elif errors:
+            overall_exit = max(overall_exit, 2)
+
+    return overall_exit
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Main entry point for the CLI."""
     parser = argparse.ArgumentParser(
-        description="Track food truck schedules and locations"
+        description="Track event schedules across multiple sites"
     )
     parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
     parser.add_argument(
-        "--config", "-c", help="Path to brewery configuration JSON file"
+        "--site",
+        "-s",
+        help=(
+            'Site key to run (e.g. "ballard-food-trucks", "park-slope-music"). '
+            'Use "all" to run all configured sites. Default: ballard-food-trucks'
+        ),
+    )
+    parser.add_argument(
+        "--config", "-c", help="Path to site or brewery configuration JSON file"
     )
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose logging"
@@ -457,7 +587,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     parser.add_argument(
         "--git-repo",
-        help="Git repository URL for deployment (default: ballard-food-trucks)",
+        help="Git repository URL for deployment override",
     )
     parser.add_argument(
         "--preview",
@@ -468,13 +598,12 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     args = parser.parse_args(argv)
 
-    # Set up logging
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(
         level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
-    print("🍺 Around the Grounds - Food Truck Tracker")
+    print("🌐 Around the Grounds - Event Tracker")
     print("=" * 50)
 
     try:

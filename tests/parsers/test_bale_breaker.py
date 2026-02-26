@@ -95,10 +95,10 @@ class TestBaleBreakerParser:
 
                 assert len(events) == 2
                 assert all(
-                    event.brewery_key == "yonder-balebreaker" for event in events
+                    event.venue_key == "yonder-balebreaker" for event in events
                 )
-                assert events[0].food_truck_name == "Georgia's Greek"
-                assert events[1].food_truck_name == "Wood Shop BBQ"
+                assert events[0].title == "Georgia's Greek"
+                assert events[1].title == "Wood Shop BBQ"
 
     @pytest.mark.asyncio
     async def test_parse_no_collection_id_fallback(
@@ -115,8 +115,8 @@ class TestBaleBreakerParser:
 
                 # Should return fallback event
                 assert len(events) == 1
-                assert "Check Instagram @BaleBreaker" in events[0].food_truck_name
-                assert events[0].brewery_key == "yonder-balebreaker"
+                assert "Check Instagram @BaleBreaker" in events[0].title
+                assert events[0].venue_key == "yonder-balebreaker"
 
     @pytest.mark.asyncio
     @freeze_time("2025-07-01")
@@ -139,7 +139,7 @@ class TestBaleBreakerParser:
 
                 # Should return fallback event when API fails
                 assert len(events) == 1
-                assert "Check Instagram @BaleBreaker" in events[0].food_truck_name
+                assert "Check Instagram @BaleBreaker" in events[0].title
 
     @pytest.mark.asyncio
     async def test_parse_network_error_fallback(
@@ -154,7 +154,7 @@ class TestBaleBreakerParser:
 
                 # Should return fallback instead of raising
                 assert len(events) == 1
-                assert "Check Instagram @BaleBreaker" in events[0].food_truck_name
+                assert "Check Instagram @BaleBreaker" in events[0].title
 
     def test_extract_collection_id_from_calendar_block(
         self, parser: BaleBreakerParser
@@ -206,8 +206,8 @@ class TestBaleBreakerParser:
         event = parser._parse_api_event(event_data)
 
         assert event is not None
-        assert event.food_truck_name == "Test Food Truck"
-        assert event.brewery_key == "yonder-balebreaker"
+        assert event.title == "Test Food Truck"
+        assert event.venue_key == "yonder-balebreaker"
         assert isinstance(event.date, datetime)
         assert isinstance(event.end_time, datetime)
 
@@ -231,9 +231,9 @@ class TestBaleBreakerParser:
 
         assert len(events) == 1
         event = events[0]
-        assert "Check Instagram @BaleBreaker" in event.food_truck_name
+        assert "Check Instagram @BaleBreaker" in event.title
         assert event.description is not None and "check Instagram" in event.description
-        assert event.brewery_key == "yonder-balebreaker"
+        assert event.venue_key == "yonder-balebreaker"
 
     @pytest.mark.asyncio
     @freeze_time("2025-07-01")
@@ -255,8 +255,8 @@ class TestBaleBreakerParser:
                 events = await parser._fetch_calendar_events(session, collection_id)
 
                 assert len(events) == 2
-                assert events[0].food_truck_name == "Georgia's Greek"
-                assert events[1].food_truck_name == "Wood Shop BBQ"
+                assert events[0].title == "Georgia's Greek"
+                assert events[1].title == "Wood Shop BBQ"
 
     @pytest.mark.asyncio
     @freeze_time("2025-07-01")

@@ -135,19 +135,19 @@ class TestUrbanFamilyParser:
 
         # Check first event (with explicit title)
         event1 = events[0]
-        assert event1.brewery_key == "urban-family"
-        assert event1.brewery_name == "Urban Family Brewing"
-        assert event1.food_truck_name == "Kaosamia Thai"
+        assert event1.venue_key == "urban-family"
+        assert event1.venue_name == "Urban Family Brewing"
+        assert event1.title == "Kaosamia Thai"
         assert event1.date == datetime(2025, 7, 6)
         assert event1.start_time == datetime(2025, 7, 6, 13, 0)
         assert event1.end_time == datetime(2025, 7, 6, 19, 0)
 
         # Check second event (vendor ID mapping now provides correct name)
         event2 = events[1]
-        assert event2.brewery_key == "urban-family"
-        assert event2.brewery_name == "Urban Family Brewing"
+        assert event2.venue_key == "urban-family"
+        assert event2.venue_name == "Urban Family Brewing"
         assert (
-            event2.food_truck_name == "Tolu Modern Fijian Cuisine"
+            event2.title == "Tolu Modern Fijian Cuisine"
         )  # Mapped from vendor ID 67f6f44de4ca31e444ef637d (was incorrectly "Blk" from filename before)
         assert event2.date == datetime(2025, 7, 7)
         assert event2.start_time == datetime(2025, 7, 7, 16, 0)
@@ -173,8 +173,8 @@ class TestUrbanFamilyParser:
         assert len(events) == 2
 
         # Check name extraction from image filenames (improved logic removes "Logo")
-        assert events[0].food_truck_name == "Georgia Greek"
-        assert events[1].food_truck_name == "Woodshop Bbq"
+        assert events[0].title == "Georgia Greek"
+        assert events[1].title == "Woodshop Bbq"
 
     @pytest.mark.asyncio
     async def test_parse_empty_response(self, parser: UrbanFamilyParser) -> None:
@@ -315,11 +315,11 @@ class TestUrbanFamilyParser:
         event_by_date = {event.date.day: event for event in events}
 
         # Event without valid name should get TBD
-        assert event_by_date[10].food_truck_name == "TBD"
+        assert event_by_date[10].title == "TBD"
         assert event_by_date[10].date == datetime(2025, 7, 10)
 
         # Event with valid name should keep it
-        assert event_by_date[11].food_truck_name == "Good Eats"
+        assert event_by_date[11].title == "Good Eats"
         assert event_by_date[11].date == datetime(2025, 7, 11)
 
     def test_extract_food_truck_name_from_title(
@@ -493,7 +493,7 @@ class TestUrbanFamilyParser:
 
         events = parser._parse_json_data(data)
         assert len(events) == 1
-        assert events[0].food_truck_name == "Test Truck"
+        assert events[0].title == "Test Truck"
 
     def test_parse_json_data_invalid_structure(self, parser: UrbanFamilyParser) -> None:
         """Test parsing invalid JSON data structure."""
