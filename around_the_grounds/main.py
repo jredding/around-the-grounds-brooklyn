@@ -307,25 +307,17 @@ def _deploy_with_github_auth(
 
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_dir = Path(temp_dir) / "repo"
+            repo_dir.mkdir()
 
-            print(f"📥 Cloning repository {repository_url}...")
+            # Initialise a fresh local repo — avoids clone failures on empty/new target repos
+            subprocess.run(["git", "init"], cwd=repo_dir, check=True, capture_output=True)
             subprocess.run(
-                ["git", "clone", repository_url, str(repo_dir)],
-                check=True,
-                capture_output=True,
-            )
-
-            subprocess.run(
-                ["git", "config", "user.email", "steve.androulakis@gmail.com"],
-                cwd=repo_dir,
-                check=True,
-                capture_output=True,
+                ["git", "config", "user.email", "bot@around-the-grounds.app"],
+                cwd=repo_dir, check=True, capture_output=True,
             )
             subprocess.run(
                 ["git", "config", "user.name", "Around the Grounds Bot"],
-                cwd=repo_dir,
-                check=True,
-                capture_output=True,
+                cwd=repo_dir, check=True, capture_output=True,
             )
 
             # Copy template files — try new multi-template path first, fall back to legacy
@@ -333,7 +325,8 @@ def _deploy_with_github_auth(
             if not public_templates_dir.exists():
                 public_templates_dir = Path.cwd() / "public_template"
 
-            target_public_dir = repo_dir / "public"
+            # Deploy to repo root so GitHub Pages serves files directly
+            target_public_dir = repo_dir
 
             print(f"📋 Copying template files from {public_templates_dir}...")
             shutil.copytree(public_templates_dir, target_public_dir, dirs_exist_ok=True)
@@ -345,25 +338,14 @@ def _deploy_with_github_auth(
             print(f"📝 Updated data.json with {web_data.get('total_events', 0)} events")
 
             subprocess.run(
-                ["git", "add", "public/"], cwd=repo_dir, check=True, capture_output=True
+                ["git", "add", "."], cwd=repo_dir, check=True, capture_output=True
             )
-
-            result = subprocess.run(
-                ["git", "diff", "--staged", "--quiet"],
-                cwd=repo_dir,
-                capture_output=True,
-            )
-            if result.returncode == 0:
-                print("ℹ️  No changes to deploy")
-                return True
 
             site_name = web_data.get("site_name", "Events")
             commit_msg = f"📅 Update {site_name} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
             subprocess.run(
                 ["git", "commit", "-m", commit_msg],
-                cwd=repo_dir,
-                check=True,
-                capture_output=True,
+                cwd=repo_dir, check=True, capture_output=True,
             )
 
             auth = GitHubAppAuth(repository_url)
@@ -371,18 +353,14 @@ def _deploy_with_github_auth(
 
             authenticated_url = f"https://x-access-token:{access_token}@github.com/{auth.repo_owner}/{auth.repo_name}.git"
             subprocess.run(
-                ["git", "remote", "set-url", "origin", authenticated_url],
-                cwd=repo_dir,
-                check=True,
-                capture_output=True,
+                ["git", "remote", "add", "origin", authenticated_url],
+                cwd=repo_dir, check=True, capture_output=True,
             )
 
             print(f"🚀 Pushing to {repository_url}...")
             subprocess.run(
-                ["git", "push", "origin", "main"],
-                cwd=repo_dir,
-                check=True,
-                capture_output=True,
+                ["git", "push", "--force", "origin", "HEAD:main"],
+                cwd=repo_dir, check=True, capture_output=True,
             )
             print("✅ Deployed successfully! Changes will be live shortly.")
 

@@ -3,7 +3,7 @@
   "name": "Park Slope Indie Music Events",
   "template": "music",
   "timezone": "America/New_York",
-  "target_repo": "",
+  "target_repo": "https://github.com/jredding/atg-park-slope-music.git",
   "generate_description": false,
   "venues": [
     {
@@ -12,20 +12,26 @@
       "url": "https://www.unionhallny.com/calendar",
       "source_type": "html",
       "parser_config": {
-        "event_container": ".event-list-item",
-        "title_selector": ".event-title",
-        "date_selector": ".event-date",
-        "time_selector": ".event-time"
+        "event_container": ".eventColl-item",
+        "title_selector": ".eventColl-eventTitle h2",
+        "date_selector": ".eventColl-dateInfo"
       }
     },
     {
       "key": "littlefield",
       "name": "Littlefield",
       "url": "https://littlefieldnyc.com",
-      "source_type": "wordpress",
+      "source_type": "ajax",
       "parser_config": {
-        "api_path": "/wp-json/wp/v2/posts",
-        "per_page": 20
+        "api_url": "https://littlefieldnyc.com/wp-json/widget-for-eventbrite-api/v1/eb_events",
+        "params": {"limit": 50},
+        "field_map": {
+          "title": "title",
+          "date": "start",
+          "start_time": "start",
+          "end_time": "end",
+          "description": "excerpt"
+        }
       }
     }
   ]

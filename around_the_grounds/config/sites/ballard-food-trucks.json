@@ -3,7 +3,7 @@
   "name": "Food Trucks in Ballard",
   "template": "food-trucks",
   "timezone": "America/Los_Angeles",
-  "target_repo": "",
+  "target_repo": "https://github.com/jredding/atg-ballard-food-trucks.git",
   "generate_description": true,
   "venues": [
     {

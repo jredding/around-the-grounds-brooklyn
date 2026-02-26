@@ -81,7 +81,7 @@ class HtmlSelectorParser(BaseParser):
             date_el = container.select_one(date_selector)
             if not date_el:
                 return None
-            date_text = date_el.get_text(strip=True)
+            date_text = date_el.get_text(separator=" ", strip=True)
             date = self._parse_date(date_text, date_format)
             if not date:
                 return None

@@ -44,9 +44,12 @@ class AjaxParser(BaseParser):
         config = self.venue.parser_config or {}
         api_url: Optional[str] = config.get("api_url")
         method: str = config.get("method", "GET").upper()
-        params: Dict[str, Any] = config.get("params", {})
+        params: Dict[str, Any] = dict(config.get("params", {}))
         response_path: Optional[str] = config.get("response_path")
         field_map: Dict[str, str] = config.get("field_map", {})
+
+        # Resolve date placeholders like {{today_iso}} and {{end_date_iso}}
+        params = self._resolve_date_placeholders(params)
 
         # Discover the endpoint if not explicitly configured
         if not api_url:
@@ -158,6 +161,25 @@ class AjaxParser(BaseParser):
             return dateutil_parser.parse(text, fuzzy=True)
         except Exception:
             return None
+
+    def _resolve_date_placeholders(
+        self, params: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Replace {{today_iso}} and {{end_date_iso}} with actual UTC dates."""
+        from datetime import timedelta
+
+        now = datetime.utcnow()
+        end = now + timedelta(days=7)
+        today_iso = now.strftime("%Y-%m-%dT00:00:00.000Z")
+        end_iso = end.strftime("%Y-%m-%dT23:59:59.999Z")
+
+        resolved: Dict[str, Any] = {}
+        for k, v in params.items():
+            if isinstance(v, str):
+                v = v.replace("{{today_iso}}", today_iso)
+                v = v.replace("{{end_date_iso}}", end_iso)
+            resolved[k] = v
+        return resolved
 
     async def _discover_endpoint(
         self, session: aiohttp.ClientSession

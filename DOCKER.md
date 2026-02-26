@@ -74,8 +74,8 @@ If you're using mTLS authentication, you need to prepare your certificates:
 
 2. **Copy your certificates:**
    ```bash
-   cp /Users/steveandroulakis/Code/certs/steveandroulakis-test-1.sdvdw.crt certs/client.crt
-   cp /Users/steveandroulakis/Code/certs/steveandroulakis-test-1.sdvdw-pkcs8.key certs/client.key
+   cp /path/to/your-cert.crt certs/client.crt
+   cp /path/to/your-key.key certs/client.key
    ```
 
 3. **Update your `.env` file:**
@@ -84,7 +84,7 @@ If you're using mTLS authentication, you need to prepare your certificates:
    TEMPORAL_NAMESPACE=your-namespace
    TEMPORAL_TLS_CERT=/certs/client.crt
    TEMPORAL_TLS_KEY=/certs/client.key
-   CERT_DIR=/Users/steveandroulakis/Code/certs
+   CERT_DIR=/path/to/your/certs
    ```
 
 ## Step 4: Test Locally
@@ -166,7 +166,7 @@ On your Synology NAS:
 
 ### Optional Variables
 
-- `ANTHROPIC_API_KEY`: Claude Vision API key for food truck name extraction
+- `ANTHROPIC_API_KEY`: Claude API key for vision analysis and haiku generation
 - `VISION_ANALYSIS_ENABLED`: Enable/disable vision analysis (default: true)
 - `VISION_MAX_RETRIES`: Max retry attempts for vision API (default: 2)
 - `VISION_TIMEOUT`: API timeout in seconds (default: 30)
