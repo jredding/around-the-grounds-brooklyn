@@ -324,7 +324,7 @@ Unable to load food truck data. Please try again later.
     <script>
         async function loadFoodTruckData() {
             try {
-                const response = await fetch('/data.json');
+                const response = await fetch('data.json');
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
