@@ -24,7 +24,12 @@ from .config.settings import get_git_repository_url
 from .models import Venue, Event, SiteConfig
 from .scrapers.coordinator import ScraperCoordinator, ScrapingError
 from .utils.haiku_generator import HaikuGenerator
-from .utils.timezone_utils import format_time_with_timezone
+from .utils.timezone_utils import (
+    format_time_with_site_timezone,
+    get_timezone_full_name,
+    get_timezone_label,
+    now_in_site_timezone_naive,
+)
 
 def load_brewery_config(config_path: Optional[str] = None) -> List[Venue]:
     """Load venue configuration from JSON file (reads breweries.json)."""
@@ -131,10 +136,8 @@ async def _generate_description_for_today(
     if not site.generate_description:
         return None
     try:
-        from .utils.timezone_utils import now_in_pacific_naive
-
-        today_pacific = now_in_pacific_naive()
-        today = today_pacific.date()
+        today_local = now_in_site_timezone_naive(site.timezone)
+        today = today_local.date()
 
         today_events = [event for event in events if event.date.date() == today]
 
@@ -144,7 +147,7 @@ async def _generate_description_for_today(
 
         haiku_generator = HaikuGenerator()
         haiku = await haiku_generator.generate_haiku(
-            today_pacific, today_events, max_retries=2, site_name=site.name
+            today_local, today_events, max_retries=2, site_name=site.name
         )
 
         return haiku
@@ -178,11 +181,12 @@ async def generate_web_data(
 ) -> dict:
     """Generate web-friendly JSON data from events."""
     web_events = []
-    tz_label = "PT"
-    tz_note = "All event times are in Pacific Time (PT)."
     site_name = site.name if site else "Events"
     site_key = site.key if site else "events"
     site_tz = site.timezone if site else "America/Los_Angeles"
+    tz_label = get_timezone_label(site_tz)
+    tz_full = get_timezone_full_name(site_tz)
+    tz_note = f"All event times are in {tz_full} ({tz_label})."
 
     for event in events:
         web_event = {
@@ -190,12 +194,16 @@ async def generate_web_data(
             "title": event.title,
             "venue": event.venue_name,
             "start_time": (
-                format_time_with_timezone(event.start_time, include_timezone=True)
+                format_time_with_site_timezone(
+                    event.start_time, site_tz, include_timezone=True
+                )
                 if event.start_time
                 else None
             ),
             "end_time": (
-                format_time_with_timezone(event.end_time, include_timezone=True)
+                format_time_with_site_timezone(
+                    event.end_time, site_tz, include_timezone=True
+                )
                 if event.end_time
                 else None
             ),
@@ -230,15 +238,13 @@ async def generate_web_data(
     else:
         # Legacy path: try to generate haiku without site context
         try:
-            from .utils.timezone_utils import now_in_pacific_naive
-
-            today_pacific = now_in_pacific_naive()
-            today = today_pacific.date()
+            today_local = now_in_site_timezone_naive(site_tz)
+            today = today_local.date()
             today_events = [e for e in events if e.date.date() == today]
             if today_events:
                 haiku_generator = HaikuGenerator()
                 description = await haiku_generator.generate_haiku(
-                    today_pacific, today_events, max_retries=2
+                    today_local, today_events, max_retries=2
                 )
         except Exception:
             pass
@@ -250,6 +256,7 @@ async def generate_web_data(
         "site_name": site_name,
         "site_key": site_key,
         "timezone": site_tz,
+        "timezone_label": tz_label,
         "timezone_note": tz_note,
         "errors": unique_error_messages,
         "haiku": description,

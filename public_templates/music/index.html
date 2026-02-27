@@ -165,9 +165,10 @@ fetch('data.json')
 
         container.innerHTML = Object.entries(byDate).map(([date, evts]) => {
             const d2 = new Date(date + 'T12:00:00');
-            const month = d2.toLocaleDateString('en-US', { month: 'long' }).toUpperCase();
-            const day = d2.getDate();
-            const weekday = d2.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
+            const tzOpts = data.timezone ? { timeZone: data.timezone } : {};
+            const month = d2.toLocaleDateString('en-US', { month: 'long', ...tzOpts }).toUpperCase();
+            const day = d2.toLocaleDateString('en-US', { day: 'numeric', ...tzOpts });
+            const weekday = d2.toLocaleDateString('en-US', { weekday: 'long', ...tzOpts }).toUpperCase();
             const label = `<strong>${month} ${day}</strong> <span class="day-weekday">${weekday}</span>`;
             const items = evts.map(e => {
                 const timeStr = e.start_time_raw

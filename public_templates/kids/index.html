@@ -138,8 +138,9 @@ fetch('data.json')
         });
 
         container.innerHTML = Object.entries(byDate).map(([date, evts]) => {
+            const tzOpts = data.timezone ? { timeZone: data.timezone } : {};
             const label = new Date(date + 'T12:00:00').toLocaleDateString('en-US',
-                { weekday: 'long', month: 'long', day: 'numeric' });
+                { weekday: 'long', month: 'long', day: 'numeric', ...tzOpts });
             const items = evts.map(e => {
                 const timeStr = e.start_time_raw
                     ? (e.end_time_raw ? e.start_time_raw + ' – ' + e.end_time_raw : e.start_time_raw)
