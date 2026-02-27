@@ -1,13 +1,13 @@
 # Haiku Generator
 
-The system includes AI-powered haiku generation to create contextual, poetic descriptions of daily food truck scenes in Seattle's Ballard neighborhood.
+The system includes AI-powered haiku generation to create contextual, poetic descriptions of daily event scenes. Currently used for the Ballard food trucks site.
 
 ## Overview
 
 The haiku generator uses Claude Sonnet 4.5 to create haikus that:
 - Reflect the current season based on today's date
-- Feature a specific food truck and brewery combination
-- Capture the atmosphere of Seattle's food truck culture
+- Feature a specific event and venue combination
+- Capture the atmosphere of the local food truck culture
 - Follow traditional 5-7-5 syllable structure
 - Include seasonal emojis for visual appeal
 
@@ -16,8 +16,8 @@ The haiku generator uses Claude Sonnet 4.5 to create haikus that:
 ### Generation Process
 
 1. **Date Context**: System provides the current date to Claude for seasonal awareness
-2. **Random Selection**: One food truck event is randomly selected from today's events
-3. **AI Generation**: Claude creates a contextual haiku featuring the selected truck and brewery
+2. **Random Selection**: One event is randomly selected from today's events
+3. **AI Generation**: Claude creates a contextual haiku featuring the selected event and venue
 4. **Validation**: System ensures haiku has exactly 3 text lines with inline emojis
 5. **Retry Logic**: If generation fails, system retries with exponential backoff (max 2 retries)
 
@@ -59,7 +59,8 @@ export ANTHROPIC_API_KEY="your-api-key"
 
 Haiku generation is automatic when:
 - `ANTHROPIC_API_KEY` is set in environment
-- Food truck events are available for today
+- The site config has `generate_description: true` (default for ballard-food-trucks)
+- Events are available for today
 - System successfully connects to Claude API
 
 If API key is not set or API fails, system gracefully continues without haikus.
@@ -77,9 +78,9 @@ The template uses Python `{format}` placeholders. The following fields are avail
 | Placeholder | Description |
 |-------------|-------------|
 | `{date}` | Human-friendly date string (`March 15, 2025 (Saturday)`) |
-| `{truck_name}` | Food truck selected for featured focus |
-| `{brewery_name}` | Brewery hosting the featured truck |
-| `{events_summary}` | Bullet list with the single randomly highlighted truck/brewery |
+| `{truck_name}` | Event title selected for featured focus |
+| `{venue_name}` | Venue hosting the featured event |
+| `{events_summary}` | Bullet list with the single randomly highlighted event/venue |
 
 If the custom template is missing a placeholder, the generator falls back to the built-in default to avoid runtime failures. Keep the emoji formatting rules or adjust them to match your brand voice.
 
@@ -127,7 +128,7 @@ generator = HaikuGenerator(api_key="your-api-key")
 # Generate haiku for today's events
 haiku = await generator.generate_haiku(
     date=datetime.now(),
-    events=food_truck_events
+    events=events
 )
 
 if haiku:
@@ -156,7 +157,7 @@ Located in `around_the_grounds/utils/haiku_generator.py`
 
 The haiku prompt includes:
 - Current date and day of week for seasonal context
-- Selected food truck and brewery names
+- Selected event title and venue name
 - Specific formatting requirements (5-7-5 syllables, inline emojis)
 - Guidance on Pacific Northwest atmosphere and food culture
 - Examples of well-formatted haikus
@@ -248,7 +249,7 @@ async def test_haiku_generation_integration():
     generator = HaikuGenerator()
 
     # Use real API (requires ANTHROPIC_API_KEY)
-    events = [sample_food_truck_event]
+    events = [sample_event]
     haiku = await generator.generate_haiku(
         date=datetime.now(),
         events=events
@@ -273,7 +274,7 @@ async def test_haiku_generation_integration():
 
 ### API Call Timing
 
-- **Single haiku per run**: Only one haiku generated per scraping run (not per brewery)
+- **Single haiku per run**: Only one haiku generated per scraping run (not per venue)
 - **Async operation**: Uses async API client for non-blocking operation
 - **Timeout protection**: Configurable timeout prevents hanging (default: 30s via retry logic)
 - **Minimal overhead**: Haiku generation adds ~1-2 seconds to total run time
@@ -292,7 +293,7 @@ async def test_haiku_generation_integration():
 **Possible causes**:
 - `ANTHROPIC_API_KEY` not set
 - API key invalid or expired
-- No food truck events available for today
+- No events available for today
 - API timeout or network issues
 
 **Solutions**:
@@ -335,6 +336,6 @@ uv run around-the-grounds --verbose
 Potential improvements:
 - Cache haikus by date to avoid regenerating same haiku multiple times
 - Allow custom haiku themes via configuration
-- Support multiple haikus per day (e.g., one per brewery)
+- Support multiple haikus per day (e.g., one per venue)
 - Add haiku history/archive feature
 - Integrate with social media posting

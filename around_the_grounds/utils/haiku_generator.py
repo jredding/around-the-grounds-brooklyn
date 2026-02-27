@@ -10,7 +10,7 @@ from typing import List, Optional, Union
 
 import anthropic
 
-from ..models import FoodTruckEvent
+from ..models import Event
 
 
 DEFAULT_PROMPT_PATH = (
@@ -19,7 +19,7 @@ DEFAULT_PROMPT_PATH = (
 
 DEFAULT_PROMPT_TEMPLATE = """Today's date is: {date}
 
-Today's featured food truck: {truck_name} at {brewery_name}
+Today's featured food truck: {truck_name} at {venue_name}
 
 Today's haiku inspiration:
 {events_summary}
@@ -29,7 +29,7 @@ Today's haiku inspiration:
 Create a haiku (5-7-5 syllable structure) that captures the essence of today's food truck scene in Seattle's Ballard neighborhood. Your haiku should:
 
 1. Reflect the current season and time of year based on today's date
-2. Feature the specific food truck ({truck_name}) and brewery ({brewery_name}) mentioned above
+2. Feature the specific food truck ({truck_name}) and brewery ({venue_name}) mentioned above
 3. Evoke the atmosphere of gathering at local breweries and food spots
 4. Balance concrete sensory details with seasonal imagery
 
@@ -74,7 +74,11 @@ class HaikuGenerator:
         )
 
     async def generate_haiku(
-        self, date: datetime, events: List[FoodTruckEvent], max_retries: int = 2
+        self,
+        date: datetime,
+        events: List[Event],
+        max_retries: int = 2,
+        site_name: str = "Food Trucks",
     ) -> Optional[str]:
         """
         Generate a haiku based on today's food truck events.
@@ -122,27 +126,27 @@ class HaikuGenerator:
         return None
 
     async def _generate_haiku_internal(
-        self, date: datetime, events: List[FoodTruckEvent]
+        self, date: datetime, events: List[Event]
     ) -> Optional[str]:
         """Internal method to generate haiku using Claude API."""
         try:
             # Format date for prompt
             date_str = date.strftime("%B %d, %Y (%A)")
 
-            # Randomly select ONE food truck/brewery combination for diversity
+            # Randomly select ONE event/venue combination for diversity
             selected_event = random.choice(events)
-            truck_name = selected_event.food_truck_name
-            brewery_name = selected_event.brewery_name
+            truck_name = selected_event.title
+            venue_name = selected_event.venue_name
 
             self.logger.debug(
-                f"Selected truck for haiku: {truck_name} at {brewery_name}"
+                f"Selected truck for haiku: {truck_name} at {venue_name}"
             )
 
             # Build prompt from template
             prompt = self._build_prompt(
                 date_str=date_str,
                 truck_name=truck_name,
-                brewery_name=brewery_name,
+                venue_name=venue_name,
                 events=[selected_event],
             )
 
@@ -241,12 +245,12 @@ class HaikuGenerator:
         *,
         date_str: str,
         truck_name: str,
-        brewery_name: str,
-        events: List[FoodTruckEvent],
+        venue_name: str,
+        events: List[Event],
     ) -> str:
         """Render the configured prompt template with context."""
         events_summary = "\n".join(
-            f"- {event.food_truck_name} at {event.brewery_name}" for event in events
+            f"- {event.title} at {event.venue_name}" for event in events
         )
 
         template = self.prompt_template
@@ -255,7 +259,7 @@ class HaikuGenerator:
             return template.format(
                 date=date_str,
                 truck_name=truck_name,
-                brewery_name=brewery_name,
+                venue_name=venue_name,
                 events_summary=events_summary,
             )
         except KeyError as exc:
@@ -273,6 +277,6 @@ class HaikuGenerator:
         return DEFAULT_PROMPT_TEMPLATE.format(
             date=date_str,
             truck_name=truck_name,
-            brewery_name=brewery_name,
+            venue_name=venue_name,
             events_summary=events_summary,
         )
