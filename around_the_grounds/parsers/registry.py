@@ -3,7 +3,7 @@ from typing import Dict, List, Type
 from .bale_breaker import BaleBreakerParser
 from .base import BaseParser
 from .chucks_greenwood import ChucksGreenwoodParser
-from .generic import AjaxParser, HtmlSelectorParser, WordPressParser
+from .generic import AjaxParser, HtmlSelectorParser, JsonLdParser, WordPressParser
 from .obec_brewing import ObecBrewingParser
 from .salehs_corner import SalehsCornerParser
 from .stoup_ballard import StoupBallardParser
@@ -19,6 +19,7 @@ class ParserRegistry:
         "wordpress": WordPressParser,
         "html": HtmlSelectorParser,
         "ajax": AjaxParser,
+        "json-ld": JsonLdParser,
     }
 
     # Specific parsers — selected by venue.key (takes precedence over generic)

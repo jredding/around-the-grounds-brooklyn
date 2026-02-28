@@ -1,5 +1,8 @@
 """Tests for the generic WordPress REST API parser."""
 
+import json
+from pathlib import Path
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
@@ -287,3 +290,251 @@ class TestWordPressParser:
         events = await parser.parse(mock_session)
 
         assert events == []
+
+
+def _make_tribe_venue(
+    parser_config: dict = None,
+) -> Venue:
+    """Helper to create a Tribe Events Calendar venue."""
+    return Venue(
+        key="industry-city",
+        name="Industry City",
+        url="https://industrycity.com",
+        source_type="wordpress",
+        parser_config=parser_config
+        or {
+            "api_path": "/wp-json/tribe/events/v1/events",
+            "per_page": 50,
+            "response_path": "events",
+            "field_map": {
+                "title": "title",
+                "date": "start_date",
+                "end_time": "end_date",
+                "description": "description",
+            },
+        },
+    )
+
+
+def _mock_session(payload: object) -> MagicMock:
+    """Create a mock session returning the given JSON payload."""
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.json = AsyncMock(return_value=payload)
+    mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+    mock_response.__aexit__ = AsyncMock(return_value=False)
+    mock_session = MagicMock()
+    mock_session.get = MagicMock(return_value=mock_response)
+    return mock_session
+
+
+class TestWordPressParserTribeEvents:
+    """Tests for WordPressParser with response_path and field_map (Tribe Events)."""
+
+    @pytest.mark.asyncio
+    async def test_parse_with_response_path(self) -> None:
+        """Events wrapped in response_path are traversed correctly."""
+        venue = _make_tribe_venue()
+        parser = WordPressParser(venue)
+        payload = {
+            "events": [
+                {
+                    "title": "Jazz Fest",
+                    "start_date": "2025-07-04 18:00:00",
+                    "end_date": "2025-07-04 22:00:00",
+                    "description": "Live jazz.",
+                }
+            ],
+            "total": 1,
+        }
+        events = await parser.parse(_mock_session(payload))
+
+        assert len(events) == 1
+        assert events[0].title == "Jazz Fest"
+
+    @pytest.mark.asyncio
+    async def test_parse_with_field_map(self) -> None:
+        """Field map correctly maps Tribe Events fields to Event model."""
+        venue = _make_tribe_venue()
+        parser = WordPressParser(venue)
+        payload = {
+            "events": [
+                {
+                    "title": "Makers Market",
+                    "start_date": "2025-07-05 10:00:00",
+                    "end_date": "2025-07-05 17:00:00",
+                    "description": "Artisans and food.",
+                }
+            ],
+            "total": 1,
+        }
+        events = await parser.parse(_mock_session(payload))
+
+        assert events[0].title == "Makers Market"
+        assert events[0].date == datetime(2025, 7, 5, 10, 0, 0)
+        assert events[0].start_time == datetime(2025, 7, 5, 10, 0, 0)
+        assert events[0].end_time == datetime(2025, 7, 5, 17, 0, 0)
+        assert events[0].description == "Artisans and food."
+        assert events[0].extraction_method == "api"
+
+    @pytest.mark.asyncio
+    async def test_parse_field_map_plain_string_title(self) -> None:
+        """Plain string title (Tribe Events style) is handled."""
+        venue = _make_tribe_venue()
+        parser = WordPressParser(venue)
+        payload = {
+            "events": [
+                {
+                    "title": "Plain Title",
+                    "start_date": "2025-07-04 20:00:00",
+                }
+            ],
+        }
+        events = await parser.parse(_mock_session(payload))
+
+        assert events[0].title == "Plain Title"
+
+    @pytest.mark.asyncio
+    async def test_parse_field_map_rendered_title(self) -> None:
+        """WP rendered title object is also handled in field_map path."""
+        venue = _make_tribe_venue()
+        parser = WordPressParser(venue)
+        payload = {
+            "events": [
+                {
+                    "title": {"rendered": "<em>Fancy</em> Title"},
+                    "start_date": "2025-07-04 20:00:00",
+                }
+            ],
+        }
+        events = await parser.parse(_mock_session(payload))
+
+        assert events[0].title == "Fancy Title"
+
+    @pytest.mark.asyncio
+    async def test_parse_response_path_returns_none(self) -> None:
+        """Bad response_path returns empty list."""
+        venue = _make_tribe_venue(
+            parser_config={
+                "api_path": "/wp-json/tribe/events/v1/events",
+                "response_path": "nonexistent",
+                "field_map": {"title": "title", "date": "start_date"},
+            }
+        )
+        parser = WordPressParser(venue)
+        payload = {"events": []}
+        events = await parser.parse(_mock_session(payload))
+
+        assert events == []
+
+    @pytest.mark.asyncio
+    async def test_parse_response_path_not_list(self) -> None:
+        """response_path resolving to non-list returns empty."""
+        venue = _make_tribe_venue(
+            parser_config={
+                "api_path": "/wp-json/tribe/events/v1/events",
+                "response_path": "total",
+                "field_map": {"title": "title", "date": "start_date"},
+            }
+        )
+        parser = WordPressParser(venue)
+        payload = {"events": [], "total": 0}
+        events = await parser.parse(_mock_session(payload))
+
+        assert events == []
+
+    @pytest.mark.asyncio
+    async def test_parse_field_map_strips_html_description(self) -> None:
+        """HTML is stripped from description via field_map."""
+        venue = _make_tribe_venue()
+        parser = WordPressParser(venue)
+        payload = {
+            "events": [
+                {
+                    "title": "Event",
+                    "start_date": "2025-07-04 20:00:00",
+                    "description": "<p>Great <strong>show</strong>!</p>",
+                }
+            ],
+        }
+        events = await parser.parse(_mock_session(payload))
+
+        assert events[0].description == "Great show!"
+
+    @pytest.mark.asyncio
+    async def test_parse_field_map_skips_missing_title(self) -> None:
+        """Item without title field is skipped."""
+        venue = _make_tribe_venue()
+        parser = WordPressParser(venue)
+        payload = {
+            "events": [
+                {"start_date": "2025-07-04 20:00:00", "description": "No title."}
+            ],
+        }
+        events = await parser.parse(_mock_session(payload))
+
+        assert events == []
+
+    @pytest.mark.asyncio
+    async def test_parse_field_map_skips_missing_date(self) -> None:
+        """Item without date field is skipped."""
+        venue = _make_tribe_venue()
+        parser = WordPressParser(venue)
+        payload = {
+            "events": [{"title": "No Date"}],
+        }
+        events = await parser.parse(_mock_session(payload))
+
+        assert events == []
+
+    @pytest.mark.asyncio
+    async def test_parse_iso_datetime_with_timezone(self) -> None:
+        """ISO 8601 dates with timezone offset are parsed."""
+        venue = _make_tribe_venue()
+        parser = WordPressParser(venue)
+        payload = {
+            "events": [
+                {
+                    "title": "TZ Event",
+                    "start_date": "2025-07-04T18:00:00-04:00",
+                    "end_date": "2025-07-04T22:00:00-04:00",
+                }
+            ],
+        }
+        events = await parser.parse(_mock_session(payload))
+
+        assert len(events) == 1
+        assert events[0].date.hour == 18
+
+    @pytest.mark.asyncio
+    async def test_parse_with_fixture_file(self) -> None:
+        """Parser handles the Industry City Tribe Events fixture."""
+        fixture_path = (
+            Path(__file__).parent.parent
+            / "fixtures"
+            / "json"
+            / "industry_city_tribe_sample.json"
+        )
+        payload = json.loads(fixture_path.read_text())
+        venue = _make_tribe_venue()
+        parser = WordPressParser(venue)
+
+        events = await parser.parse(_mock_session(payload))
+
+        assert len(events) == 2
+        assert events[0].title == "Summer Jazz Festival"
+        assert events[1].title == "Makers Market"
+        assert events[0].venue_key == "industry-city"
+
+    @pytest.mark.asyncio
+    async def test_backward_compat_no_field_map(self) -> None:
+        """Without field_map, parser uses existing _parse_post path."""
+        venue = _make_venue()  # vanilla WP venue, no field_map
+        parser = WordPressParser(venue)
+        posts = [_make_post("Classic Post", "2025-07-04T20:00:00")]
+
+        events = await parser.parse(_mock_session(posts))
+
+        assert len(events) == 1
+        assert events[0].title == "Classic Post"
+        assert events[0].start_time is None  # _parse_post doesn't set start_time
