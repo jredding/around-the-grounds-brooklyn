@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import aiohttp
 
@@ -60,6 +60,13 @@ class ScraperCoordinator:
         self.errors = []  # Reset errors for this run
         self._timezone = timezone
 
+        # Build venue order mapping from config list order so that events
+        # within the same day are sorted by the venue's position in the
+        # site config, matching the reference site's display order.
+        venue_order: Dict[str, int] = {
+            v.key: idx for idx, v in enumerate(venues)
+        }
+
         connector = aiohttp.TCPConnector(limit=self.max_concurrent)
         async with aiohttp.ClientSession(
             connector=connector,
@@ -99,8 +106,8 @@ class ScraperCoordinator:
                     self.errors.append(error_opt)
                 all_events.extend(events)
 
-        # Filter to next 7 days and sort by date
-        return self._filter_and_sort_events(all_events)
+        # Filter to next 7 days and sort by date, preserving venue config order
+        return self._filter_and_sort_events(all_events, venue_order)
 
     async def scrape_one(
         self, venue: Venue, timezone: str = "America/Los_Angeles"
@@ -212,10 +219,16 @@ class ScraperCoordinator:
 
         return [], None
 
-    def _filter_and_sort_events(self, events: List[Event]) -> List[Event]:
+    def _filter_and_sort_events(
+        self,
+        events: List[Event],
+        venue_order: Optional[Dict[str, int]] = None,
+    ) -> List[Event]:
         """
-        Filter events to next 7 days and sort by date.
+        Filter events to next 7 days and sort by (date, venue config order, start_time).
         Uses the site timezone to ensure events are filtered correctly.
+        Within each day, events are ordered by the venue's position in the site
+        config file, matching the reference site's display order.
         """
         tz_name = getattr(self, "_timezone", "America/Los_Angeles")
         try:
@@ -232,12 +245,17 @@ class ScraperCoordinator:
             if now.date() <= event.date.date() <= one_week_later.date()
         ]
 
+        # Default venue_order: sort alphabetically by venue_key when no
+        # config order is provided (e.g. scrape_one).
+        _venue_order = venue_order or {}
+
         # Normalize to naive datetimes for sorting to avoid TypeError when
         # mixing timezone-aware (e.g. JSON-LD, dateutil) and naive dates.
         def _sort_key(ev: Event) -> tuple:
             d = ev.date.replace(tzinfo=None)
+            v = _venue_order.get(ev.venue_key, 999)
             st = ev.start_time.replace(tzinfo=None) if ev.start_time else d
-            return (d, st)
+            return (d, v, st)
 
         filtered_events.sort(key=_sort_key)
 
