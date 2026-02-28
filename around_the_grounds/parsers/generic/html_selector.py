@@ -28,6 +28,7 @@ class HtmlSelectorParser(BaseParser):
         event_container = config.get("event_container", ".event-item")
         title_selector = config.get("title_selector", ".event-title")
         date_selector = config.get("date_selector", ".event-date")
+        date_attribute: Optional[str] = config.get("date_attribute")
         time_selector: Optional[str] = config.get("time_selector")
         desc_selector: Optional[str] = config.get("description_selector")
         date_format: str = config.get("date_format", "auto")
@@ -48,6 +49,7 @@ class HtmlSelectorParser(BaseParser):
                 container,
                 title_selector=title_selector,
                 date_selector=date_selector,
+                date_attribute=date_attribute,
                 time_selector=time_selector,
                 desc_selector=desc_selector,
                 date_format=date_format,
@@ -65,6 +67,7 @@ class HtmlSelectorParser(BaseParser):
         container: Tag,
         title_selector: str,
         date_selector: str,
+        date_attribute: Optional[str],
         time_selector: Optional[str],
         desc_selector: Optional[str],
         date_format: str,
@@ -81,7 +84,10 @@ class HtmlSelectorParser(BaseParser):
             date_el = container.select_one(date_selector)
             if not date_el:
                 return None
-            date_text = date_el.get_text(separator=" ", strip=True)
+            if date_attribute:
+                date_text = str(date_el.get(date_attribute, "")).strip()
+            else:
+                date_text = date_el.get_text(separator=" ", strip=True)
             date = self._parse_date(date_text, date_format)
             if not date:
                 return None

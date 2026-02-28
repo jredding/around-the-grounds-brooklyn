@@ -33,6 +33,59 @@
           "description": "excerpt"
         }
       }
+    },
+    {
+      "key": "young-ethels",
+      "name": "Young Ethel's",
+      "url": "https://www.youngethels.com/events",
+      "source_type": "html",
+      "parser_config": {
+        "event_container": ".space-y-2 > li",
+        "title_selector": "span.block",
+        "date_selector": "time.font-bold",
+        "date_attribute": "datetime",
+        "time_selector": "time.font-bold",
+        "date_format": "auto"
+      }
+    },
+    {
+      "key": "eastville-comedy",
+      "name": "Eastville Comedy Club",
+      "url": "https://www.eastvillecomedy.com/calendar",
+      "source_type": "json-ld",
+      "parser_config": {
+        "event_types": ["ComedyEvent", "Event"]
+      }
+    },
+    {
+      "key": "industry-city",
+      "name": "Industry City",
+      "url": "https://industrycity.com",
+      "source_type": "wordpress",
+      "parser_config": {
+        "api_path": "/wp-json/tribe/events/v1/events",
+        "per_page": 50,
+        "response_path": "events",
+        "field_map": {
+          "title": "title",
+          "date": "start_date",
+          "end_time": "end_date",
+          "description": "description"
+        }
+      }
+    },
+    {
+      "key": "roulette-bk",
+      "name": "Roulette",
+      "url": "https://roulette.org/calendar/",
+      "source_type": "html",
+      "parser_config": {
+        "event_container": "div.event",
+        "title_selector": "h2.event-title a",
+        "date_selector": "div.event-time",
+        "description_selector": "div.event-desc",
+        "date_format": "auto"
+      }
     }
   ]
 }
