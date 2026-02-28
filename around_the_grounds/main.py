@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -135,6 +136,16 @@ async def _generate_description_for_today(
     """Generate a haiku for today's events (only if site.generate_description is True)."""
     if not site.generate_description:
         return None
+
+    logger = logging.getLogger(__name__)
+
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        logger.warning(
+            "ANTHROPIC_API_KEY not set — skipping haiku generation. "
+            "Set the environment variable to enable AI haiku descriptions."
+        )
+        return None
+
     try:
         today_local = now_in_site_timezone_naive(site.timezone)
         today = today_local.date()
@@ -142,7 +153,7 @@ async def _generate_description_for_today(
         today_events = [event for event in events if event.date.date() == today]
 
         if not today_events:
-            logging.getLogger(__name__).debug("No events for today to generate haiku")
+            logger.debug("No events for today to generate haiku")
             return None
 
         haiku_generator = HaikuGenerator()
@@ -153,7 +164,7 @@ async def _generate_description_for_today(
         return haiku
 
     except Exception as e:
-        logging.getLogger(__name__).warning(
+        logger.warning(
             f"Failed to generate description, continuing without it: {e}"
         )
         return None
