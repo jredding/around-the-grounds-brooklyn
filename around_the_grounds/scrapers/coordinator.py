@@ -232,7 +232,14 @@ class ScraperCoordinator:
             if now.date() <= event.date.date() <= one_week_later.date()
         ]
 
-        filtered_events.sort(key=lambda x: (x.date, x.start_time or x.date))
+        # Normalize to naive datetimes for sorting to avoid TypeError when
+        # mixing timezone-aware (e.g. JSON-LD, dateutil) and naive dates.
+        def _sort_key(ev: Event) -> tuple:
+            d = ev.date.replace(tzinfo=None)
+            st = ev.start_time.replace(tzinfo=None) if ev.start_time else d
+            return (d, st)
+
+        filtered_events.sort(key=_sort_key)
 
         return filtered_events
 
