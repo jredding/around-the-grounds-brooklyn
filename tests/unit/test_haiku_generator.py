@@ -41,7 +41,7 @@ class TestHaikuGenerator:
     """Test haiku generation functionality."""
 
     @pytest.mark.asyncio
-    @patch("around_the_grounds.utils.haiku_generator.anthropic.Anthropic")
+    @patch("around_the_grounds.utils.haiku_generator.anthropic.AsyncAnthropic")
     async def test_generate_haiku_success(
         self, mock_anthropic_client: Mock, haiku_generator: HaikuGenerator, sample_events: list
     ) -> None:
@@ -53,7 +53,7 @@ class TestHaikuGenerator:
         mock_message.content = [mock_content]
 
         mock_client_instance = mock_anthropic_client.return_value
-        mock_client_instance.messages.create = Mock(return_value=mock_message)
+        mock_client_instance.messages.create = AsyncMock(return_value=mock_message)
         haiku_generator.client = mock_client_instance
 
         # Generate haiku
@@ -66,7 +66,7 @@ class TestHaikuGenerator:
         assert "\n" in haiku  # Should have multiple lines
 
     @pytest.mark.asyncio
-    @patch("around_the_grounds.utils.haiku_generator.anthropic.Anthropic")
+    @patch("around_the_grounds.utils.haiku_generator.anthropic.AsyncAnthropic")
     async def test_generate_haiku_no_events(
         self, mock_anthropic_client: Mock, haiku_generator: HaikuGenerator
     ) -> None:
@@ -77,7 +77,7 @@ class TestHaikuGenerator:
         assert haiku is None
 
     @pytest.mark.asyncio
-    @patch("around_the_grounds.utils.haiku_generator.anthropic.Anthropic")
+    @patch("around_the_grounds.utils.haiku_generator.anthropic.AsyncAnthropic")
     async def test_generate_haiku_api_timeout(
         self, mock_anthropic_client: Mock, haiku_generator: HaikuGenerator, sample_events: list
     ) -> None:
@@ -89,7 +89,7 @@ class TestHaikuGenerator:
         mock_client_instance = mock_anthropic_client.return_value
         # Create a mock request for the timeout error
         mock_request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
-        mock_client_instance.messages.create = Mock(
+        mock_client_instance.messages.create = AsyncMock(
             side_effect=anthropic.APITimeoutError(mock_request)
         )
         haiku_generator.client = mock_client_instance
@@ -101,14 +101,14 @@ class TestHaikuGenerator:
         assert haiku is None
 
     @pytest.mark.asyncio
-    @patch("around_the_grounds.utils.haiku_generator.anthropic.Anthropic")
+    @patch("around_the_grounds.utils.haiku_generator.anthropic.AsyncAnthropic")
     async def test_generate_haiku_api_error(
         self, mock_anthropic_client: Mock, haiku_generator: HaikuGenerator, sample_events: list
     ) -> None:
         """Test haiku generation with API error."""
         # Mock API error (generic exception)
         mock_client_instance = mock_anthropic_client.return_value
-        mock_client_instance.messages.create = Mock(
+        mock_client_instance.messages.create = AsyncMock(
             side_effect=Exception("API Error")
         )
         haiku_generator.client = mock_client_instance
@@ -120,7 +120,7 @@ class TestHaikuGenerator:
         assert haiku is None
 
     @pytest.mark.asyncio
-    @patch("around_the_grounds.utils.haiku_generator.anthropic.Anthropic")
+    @patch("around_the_grounds.utils.haiku_generator.anthropic.AsyncAnthropic")
     async def test_generate_haiku_with_retry(
         self, mock_anthropic_client: Mock, haiku_generator: HaikuGenerator, sample_events: list
     ) -> None:
@@ -132,7 +132,7 @@ class TestHaikuGenerator:
         mock_message.content = [mock_content]
 
         mock_client_instance = mock_anthropic_client.return_value
-        mock_client_instance.messages.create = Mock(
+        mock_client_instance.messages.create = AsyncMock(
             side_effect=[Exception("Network Error"), mock_message]
         )
         haiku_generator.client = mock_client_instance
@@ -163,7 +163,7 @@ class TestHaikuGenerator:
         assert cleaned == "Line 1\nLine 2\nLine 3"
 
     @pytest.mark.asyncio
-    @patch("around_the_grounds.utils.haiku_generator.anthropic.Anthropic")
+    @patch("around_the_grounds.utils.haiku_generator.anthropic.AsyncAnthropic")
     @patch("around_the_grounds.utils.haiku_generator.random.choice")
     async def test_generate_haiku_includes_truck_and_brewery(
         self, mock_random_choice: Mock, mock_anthropic_client: Mock, haiku_generator: HaikuGenerator, sample_events: list
@@ -179,7 +179,7 @@ class TestHaikuGenerator:
         mock_message.content = [mock_content]
 
         mock_client_instance = mock_anthropic_client.return_value
-        mock_create = Mock(return_value=mock_message)
+        mock_create = AsyncMock(return_value=mock_message)
         mock_client_instance.messages.create = mock_create
         haiku_generator.client = mock_client_instance
 

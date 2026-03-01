@@ -113,11 +113,13 @@ class TestHaikuIntegration:
         assert len(web_data["events"]) == 1
 
     @pytest.mark.asyncio
-    @patch("around_the_grounds.utils.haiku_generator.anthropic.Anthropic")
+    @patch("around_the_grounds.utils.haiku_generator.anthropic.AsyncAnthropic")
     async def test_haiku_for_today_filters_events(
         self, mock_anthropic_client: Mock, sample_events_today: list, sample_events_future: list
     ) -> None:
         """Test that _generate_haiku_for_today only uses today's events."""
+        from unittest.mock import AsyncMock
+
         # Mock the API response
         mock_message = Mock()
         mock_content = Mock()
@@ -125,7 +127,7 @@ class TestHaikuIntegration:
         mock_message.content = [mock_content]
 
         mock_client_instance = mock_anthropic_client.return_value
-        mock_create = Mock(return_value=mock_message)
+        mock_create = AsyncMock(return_value=mock_message)
         mock_client_instance.messages.create = mock_create
 
         # Combine today and future events

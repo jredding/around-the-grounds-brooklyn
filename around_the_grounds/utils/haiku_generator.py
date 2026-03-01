@@ -63,7 +63,7 @@ class HaikuGenerator:
         prompt_template: Optional[str] = None,
     ):
         """Initialize haiku generator with Anthropic API client."""
-        self.client = anthropic.Anthropic(
+        self.client = anthropic.AsyncAnthropic(
             api_key=api_key
         )  # Uses ANTHROPIC_API_KEY env var if None
         self.logger = logging.getLogger(__name__)
@@ -150,7 +150,7 @@ class HaikuGenerator:
                 events=[selected_event],
             )
 
-            message = self.client.messages.create(
+            message = await self.client.messages.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=150,
                 messages=[
