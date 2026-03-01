@@ -143,6 +143,17 @@ class ScraperCoordinator:
                 )
                 events = await parser.parse(session)
                 self.logger.info(f"Found {len(events)} events for {venue.name}")
+
+                # Warn about events missing start_time unless venue opts out
+                config = venue.parser_config or {}
+                if not config.get("times_optional", False):
+                    no_time = [e for e in events if e.start_time is None]
+                    if no_time:
+                        self.logger.warning(
+                            f"{len(no_time)}/{len(events)} events from "
+                            f"{venue.name} are missing start_time"
+                        )
+
                 return events, None
 
             except (asyncio.TimeoutError, aiohttp.ServerTimeoutError):

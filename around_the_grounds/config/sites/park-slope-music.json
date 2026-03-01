@@ -14,7 +14,8 @@
       "parser_config": {
         "event_container": ".eventColl-item",
         "title_selector": ".eventColl-eventTitle h2",
-        "date_selector": ".eventColl-dateInfo"
+        "date_selector": ".eventColl-dateInfo",
+        "times_optional": true
       }
     },
     {
