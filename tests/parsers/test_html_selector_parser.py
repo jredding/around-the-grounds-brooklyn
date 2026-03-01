@@ -334,3 +334,48 @@ class TestHtmlSelectorParser:
         result = parser._parse_single_time("12:00 PM", date)
         assert result is not None
         assert result.hour == 12
+
+    def test_parse_time_range_compact_pm_carry_forward(self) -> None:
+        """'5pm-8:30' carries PM forward → end=20:30."""
+        from datetime import datetime
+
+        venue = _make_venue()
+        parser = HtmlSelectorParser(venue)
+        date = datetime(2025, 7, 4)
+
+        start, end = parser._parse_time_range("5pm-8:30", date)
+        assert start is not None
+        assert start.hour == 17
+        assert end is not None
+        assert end.hour == 20
+        assert end.minute == 30
+
+    def test_parse_time_range_compact_am_carry_forward(self) -> None:
+        """'9am-11:30' carries AM forward → end=11:30."""
+        from datetime import datetime
+
+        venue = _make_venue()
+        parser = HtmlSelectorParser(venue)
+        date = datetime(2025, 7, 4)
+
+        start, end = parser._parse_time_range("9am-11:30", date)
+        assert start is not None
+        assert start.hour == 9
+        assert end is not None
+        assert end.hour == 11
+        assert end.minute == 30
+
+    def test_parse_time_range_explicit_periods_no_carry(self) -> None:
+        """'5pm-11:00 PM' — both have explicit periods, no carry needed."""
+        from datetime import datetime
+
+        venue = _make_venue()
+        parser = HtmlSelectorParser(venue)
+        date = datetime(2025, 7, 4)
+
+        start, end = parser._parse_time_range("5pm-11:00 PM", date)
+        assert start is not None
+        assert start.hour == 17
+        assert end is not None
+        assert end.hour == 23
+        assert end.minute == 0

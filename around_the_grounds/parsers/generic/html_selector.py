@@ -138,27 +138,51 @@ class HtmlSelectorParser(BaseParser):
         except ValueError:
             return None
 
+    @staticmethod
+    def _extract_period(text: str) -> Optional[str]:
+        """Extract AM/PM period from a time string, if present."""
+        import re
+
+        m = re.search(r"(am|pm)", text, re.IGNORECASE)
+        return m.group(1).lower() if m else None
+
     def _parse_time_range(
         self, text: str, date: datetime
     ) -> tuple:
-        """Parse a time range like '7:00 PM - 10:00 PM' relative to date."""
+        """Parse a time range like '7:00 PM - 10:00 PM' relative to date.
+
+        Carries forward AM/PM from the start part when the end part lacks it,
+        e.g. '5pm-8:30' → start=17:00, end=20:30.
+        """
         import re
 
         parts = re.split(r"\s*[-–—]\s*", text, maxsplit=1)
         start_time: Optional[datetime] = None
         end_time: Optional[datetime] = None
 
-        for i, part in enumerate(parts[:2]):
-            parsed = self._parse_single_time(part.strip(), date)
-            if i == 0:
-                start_time = parsed
-            else:
-                end_time = parsed
+        start_period: Optional[str] = None
+        if parts:
+            start_period = self._extract_period(parts[0])
+            start_time = self._parse_single_time(parts[0].strip(), date)
+
+        if len(parts) > 1:
+            end_time = self._parse_single_time(
+                parts[1].strip(), date, default_period=start_period
+            )
 
         return start_time, end_time
 
-    def _parse_single_time(self, text: str, date: datetime) -> Optional[datetime]:
-        """Parse a single time string like '7:00 PM' relative to date."""
+    def _parse_single_time(
+        self,
+        text: str,
+        date: datetime,
+        default_period: Optional[str] = None,
+    ) -> Optional[datetime]:
+        """Parse a single time string like '7:00 PM' relative to date.
+
+        When the text has no AM/PM suffix and *default_period* is provided,
+        the default is used instead (enables carry-forward from the start time).
+        """
         import re
 
         m = re.search(r"(\d{1,2}):(\d{2})\s*(am|pm)?", text, re.IGNORECASE)
@@ -172,7 +196,7 @@ class HtmlSelectorParser(BaseParser):
         else:
             hour = int(m.group(1))
             minute = int(m.group(2))
-            period = m.group(3).lower() if m.group(3) else None
+            period = m.group(3).lower() if m.group(3) else default_period
 
         if period == "pm" and hour != 12:
             hour += 12
