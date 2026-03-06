@@ -48,6 +48,66 @@
             margin-top: 4px;
         }
 
+        .active-filter {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            padding: 8px 0;
+            border-bottom: 1px solid #fde68a;
+        }
+
+        .active-filter.visible { display: flex; }
+
+        .active-filter-label {
+            font-size: 0.7rem;
+            color: #6b7280;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+            background: transparent;
+            color: #6b7280;
+            border: 1.5px solid #d1d5db;
+        }
+
+        .badge:hover { border-color: #0d9488; color: #0d9488; }
+
+        .badge-active {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+            background: #0d9488;
+            color: #fff;
+            border: 1.5px solid #0d9488;
+        }
+
+        .badge-active:hover { opacity: 0.85; }
+
+        .badge-x {
+            font-size: 0.75rem;
+            line-height: 1;
+            margin-left: 2px;
+        }
+
         .day-section { margin-bottom: 24px; }
 
         .day-header {
@@ -69,6 +129,8 @@
             background: #f0fdfa;
         }
 
+        .event-item.hidden { display: none; }
+
         .event-title {
             font-size: 0.9rem;
             font-weight: 700;
@@ -81,12 +143,18 @@
             margin-top: 3px;
         }
 
+        .event-location {
+            display: inline;
+        }
+
         .event-desc {
             font-size: 0.75rem;
             color: #9ca3af;
             margin-top: 4px;
             font-style: italic;
         }
+
+        .day-section.hidden { display: none; }
 
         .verify-note {
             font-size: 0.7rem;
@@ -105,6 +173,10 @@
     <div class="header">
         <div class="site-name" id="site-name">Loading…</div>
         <div class="subtitle" id="tz-note"></div>
+    </div>
+    <div class="active-filter" id="active-filter">
+        <span class="active-filter-label">Filtering:</span>
+        <span class="badge-active" id="active-filter-badge"></span>
     </div>
     <div id="events-container"><div class="loading">Loading events…</div></div>
     <div class="verify-note">Events sourced from community guides — verify times directly with the venue before attending.</div>
@@ -129,6 +201,62 @@ fetch('data.json')
             return;
         }
 
+        let activeLocation = null;
+
+        function setFilter(location) {
+            activeLocation = location;
+            const bar = document.getElementById('active-filter');
+            const badge = document.getElementById('active-filter-badge');
+
+            if (location) {
+                badge.innerHTML = location + '<span class="badge-x">\u00d7</span>';
+                bar.classList.add('visible');
+            } else {
+                bar.classList.remove('visible');
+            }
+
+            applyFilter();
+        }
+
+        document.getElementById('active-filter-badge').addEventListener('click', function() {
+            setFilter(null);
+        });
+
+        function applyFilter() {
+            document.querySelectorAll('.event-item[data-location]').forEach(item => {
+                const loc = item.dataset.location;
+                const hide = activeLocation && loc !== activeLocation;
+                item.classList.toggle('hidden', hide);
+
+                const badge = item.querySelector('.badge, .badge-active');
+                if (badge && badge.dataset.location) {
+                    if (activeLocation && badge.dataset.location === activeLocation) {
+                        badge.className = 'badge-active';
+                        badge.innerHTML = badge.dataset.location + '<span class="badge-x">\u00d7</span>';
+                    } else {
+                        badge.className = 'badge';
+                        badge.textContent = badge.dataset.location;
+                    }
+                }
+            });
+
+            document.querySelectorAll('.day-section').forEach(section => {
+                const visible = section.querySelectorAll('.event-item:not(.hidden)');
+                section.classList.toggle('hidden', visible.length === 0);
+            });
+        }
+
+        container.addEventListener('click', function(ev) {
+            const badge = ev.target.closest('.badge[data-location], .badge-active[data-location]');
+            if (!badge) return;
+            const loc = badge.dataset.location;
+            if (activeLocation === loc) {
+                setFilter(null);
+            } else {
+                setFilter(loc);
+            }
+        });
+
         // Group by date
         const byDate = {};
         events.forEach(e => {
@@ -145,11 +273,16 @@ fetch('data.json')
                 const timeStr = e.start_time_raw
                     ? (e.end_time_raw ? e.start_time_raw + ' – ' + e.end_time_raw : e.start_time_raw)
                     : '';
-                const desc = e.description ? `<div class="event-desc">${e.description}</div>` : '';
-                return `<div class="event-item">
+                const source = e.venue || e.location || '';
+                const location = e.description || '';
+                const locEsc = location.replace(/"/g, '&quot;');
+                const locationBadge = location
+                    ? `<span class="badge" data-location="${locEsc}">${location}</span>`
+                    : '';
+                return `<div class="event-item" data-location="${locEsc}">
                     <div class="event-title">${e.title || e.vendor}</div>
-                    <div class="event-meta">Source: ${e.venue || e.location}${timeStr ? ' · ' + timeStr : ''}</div>
-                    ${desc}
+                    <div class="event-meta">Source: ${source}${timeStr ? ' \u00b7 ' + timeStr : ''}</div>
+                    ${locationBadge}
                 </div>`;
             }).join('');
             return `<div class="day-section">
