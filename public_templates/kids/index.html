@@ -48,6 +48,70 @@
             margin-top: 4px;
         }
 
+        .filters {
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #fde68a;
+        }
+
+        .filter-group {
+            margin-bottom: 10px;
+        }
+
+        .filter-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .filter-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .filter-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+            background: #0d9488;
+            color: #fff;
+            border: 1.5px solid #0d9488;
+        }
+
+        .badge-outline {
+            display: inline-flex;
+            align-items: center;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+            background: transparent;
+            color: #6b7280;
+            border: 1.5px solid #d1d5db;
+        }
+
+        .badge:hover { opacity: 0.85; }
+        .badge-outline:hover { border-color: #0d9488; color: #0d9488; }
+
         .day-section { margin-bottom: 24px; }
 
         .day-header {
@@ -69,6 +133,8 @@
             background: #f0fdfa;
         }
 
+        .event-item.hidden { display: none; }
+
         .event-title {
             font-size: 0.9rem;
             font-weight: 700;
@@ -88,6 +154,8 @@
             font-style: italic;
         }
 
+        .day-section.hidden { display: none; }
+
         .verify-note {
             font-size: 0.7rem;
             color: #9ca3af;
@@ -105,6 +173,16 @@
     <div class="header">
         <div class="site-name" id="site-name">Loading…</div>
         <div class="subtitle" id="tz-note"></div>
+    </div>
+    <div class="filters" id="filters" style="display:none;">
+        <div class="filter-group">
+            <div class="filter-label">Source</div>
+            <div class="filter-badges" id="source-filters"></div>
+        </div>
+        <div class="filter-group">
+            <div class="filter-label">Location</div>
+            <div class="filter-badges" id="location-filters"></div>
+        </div>
     </div>
     <div id="events-container"><div class="loading">Loading events…</div></div>
     <div class="verify-note">Events sourced from community guides — verify times directly with the venue before attending.</div>
@@ -129,6 +207,82 @@ fetch('data.json')
             return;
         }
 
+        // Collect unique sources and locations
+        const sources = [...new Set(events.map(e => e.venue || e.location).filter(Boolean))];
+        const locations = [...new Set(events.map(e => e.description).filter(Boolean))];
+
+        // Active filters
+        const activeFilters = { source: new Set(), location: new Set() };
+
+        function buildFilterBadges() {
+            const filtersEl = document.getElementById('filters');
+            const sourceContainer = document.getElementById('source-filters');
+            const locationContainer = document.getElementById('location-filters');
+
+            if (sources.length > 0) {
+                sourceContainer.innerHTML = sources.map(s =>
+                    `<span class="badge" data-filter="source" data-value="${s.replace(/"/g, '&quot;')}">${s}</span>`
+                ).join('');
+            }
+
+            if (locations.length > 0) {
+                locationContainer.innerHTML = locations.map(l =>
+                    `<span class="badge" data-filter="location" data-value="${l.replace(/"/g, '&quot;')}">${l}</span>`
+                ).join('');
+            } else {
+                locationContainer.closest('.filter-group').style.display = 'none';
+            }
+
+            if (sources.length > 0 || locations.length > 0) {
+                filtersEl.style.display = '';
+            }
+
+            filtersEl.addEventListener('click', function(ev) {
+                const badge = ev.target.closest('[data-filter]');
+                if (!badge) return;
+                const filterType = badge.dataset.filter;
+                const value = badge.dataset.value;
+
+                if (activeFilters[filterType].has(value)) {
+                    activeFilters[filterType].delete(value);
+                    badge.className = 'badge';
+                } else {
+                    activeFilters[filterType].add(value);
+                    badge.className = 'badge-outline';
+                }
+
+                applyFilters();
+            });
+        }
+
+        function applyFilters() {
+            const hasSourceFilter = activeFilters.source.size > 0;
+            const hasLocationFilter = activeFilters.location.size > 0;
+
+            // When badges are deselected (outlined), they are in the "excluded" set.
+            // Active (filled) badges mean "show this". But our UX is:
+            // - All filled = show all (no filter)
+            // - Click to deselect (outline) = hide that value
+            // So: outlined = excluded. If all are filled, show everything.
+            // If some are outlined, hide those.
+
+            document.querySelectorAll('.event-item[data-source]').forEach(item => {
+                const source = item.dataset.source;
+                const location = item.dataset.location;
+
+                const sourceHidden = hasSourceFilter && activeFilters.source.has(source);
+                const locationHidden = hasLocationFilter && activeFilters.location.has(location);
+
+                item.classList.toggle('hidden', sourceHidden || locationHidden);
+            });
+
+            // Hide empty day sections
+            document.querySelectorAll('.day-section').forEach(section => {
+                const visibleEvents = section.querySelectorAll('.event-item:not(.hidden)');
+                section.classList.toggle('hidden', visibleEvents.length === 0);
+            });
+        }
+
         // Group by date
         const byDate = {};
         events.forEach(e => {
@@ -146,7 +300,9 @@ fetch('data.json')
                     ? (e.end_time_raw ? e.start_time_raw + ' – ' + e.end_time_raw : e.start_time_raw)
                     : '';
                 const desc = e.description ? `<div class="event-desc">${e.description}</div>` : '';
-                return `<div class="event-item">
+                const source = (e.venue || e.location || '').replace(/"/g, '&quot;');
+                const location = (e.description || '').replace(/"/g, '&quot;');
+                return `<div class="event-item" data-source="${source}" data-location="${location}">
                     <div class="event-title">${e.title || e.vendor}</div>
                     <div class="event-meta">Source: ${e.venue || e.location}${timeStr ? ' · ' + timeStr : ''}</div>
                     ${desc}
@@ -157,6 +313,8 @@ fetch('data.json')
                 ${items}
             </div>`;
         }).join('');
+
+        buildFilterBadges();
     })
     .catch(err => {
         document.getElementById('events-container').innerHTML =
