@@ -5,7 +5,11 @@ import pytest
 from around_the_grounds.models import Venue
 from around_the_grounds.parsers.bale_breaker import BaleBreakerParser
 from around_the_grounds.parsers.base import BaseParser
-from around_the_grounds.parsers.generic import AjaxParser, HtmlSelectorParser, WordPressParser
+from around_the_grounds.parsers.generic import (
+    AjaxParser,
+    HtmlSelectorParser,
+    WordPressParser,
+)
 from around_the_grounds.parsers.registry import ParserRegistry
 from around_the_grounds.parsers.stoup_ballard import StoupBallardParser
 
@@ -43,7 +47,12 @@ class TestParserRegistry:
     def test_specific_parser_takes_precedence(self) -> None:
         """Specific parsers win over generic when venue.key matches."""
         # stoup-ballard has source_type "html" but its specific parser should win
-        venue = Venue(key="stoup-ballard", name="Stoup", url="https://example.com", source_type="html")
+        venue = Venue(
+            key="stoup-ballard",
+            name="Stoup",
+            url="https://example.com",
+            source_type="html",
+        )
         parser_class = ParserRegistry.get_parser(venue)
         assert parser_class == StoupBallardParser
 
@@ -59,6 +68,18 @@ class TestParserRegistry:
         assert "stoup-ballard" in keys
         assert "yonder-balebreaker" in keys
         assert isinstance(keys, list)
+
+    def test_get_generic_parsers(self) -> None:
+        """The generic parser map is exposed as a copy."""
+        generic = ParserRegistry.get_generic_parsers()
+
+        assert set(generic.keys()) == {"wordpress", "html", "ajax", "json-ld"}
+        assert generic["wordpress"] == WordPressParser
+        assert generic["html"] == HtmlSelectorParser
+        assert generic["ajax"] == AjaxParser
+
+        generic.pop("html")
+        assert "html" in ParserRegistry.get_generic_parsers()
 
     def test_parser_registry_is_not_empty(self) -> None:
         """Test that the parser registry is not empty."""

@@ -53,5 +53,10 @@ class ParserRegistry:
         cls._specific[key] = parser_class
 
     @classmethod
+    def get_generic_parsers(cls) -> Dict[str, Type[BaseParser]]:
+        """Return a copy of the generic parser map."""
+        return dict(cls._generic)
+
+    @classmethod
     def get_supported_keys(cls) -> List[str]:
         return list(cls._specific.keys())

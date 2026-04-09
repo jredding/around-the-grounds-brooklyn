@@ -55,6 +55,10 @@ class AjaxParser(BaseParser):
         if not api_url:
             api_url = await self._discover_endpoint(session)
 
+        # Apply known defaults for discovered third-party endpoints.
+        if api_url and not response_path and not field_map:
+            response_path, field_map = self._known_endpoint_defaults(api_url)
+
         if not api_url:
             self.logger.warning(
                 f"AjaxParser: no API endpoint found for {self.venue.url}; "
@@ -109,13 +113,13 @@ class AjaxParser(BaseParser):
         try:
             # title
             title_key = field_map.get("title", "name")
-            title = str(item.get(title_key, "")).strip()
+            title = str(self._get_value(item, title_key, "")).strip()
             if not title:
                 return None
 
             # date
             date_key = field_map.get("date", "start")
-            date_str = str(item.get(date_key, "")).strip()
+            date_str = str(self._get_value(item, date_key, "")).strip()
             if not date_str:
                 return None
             date = self._parse_datetime(date_str)
@@ -125,12 +129,18 @@ class AjaxParser(BaseParser):
             # optional times
             start_key = field_map.get("start_time", "start_time")
             end_key = field_map.get("end_time", "end_time")
-            start_time = self._parse_datetime(str(item.get(start_key, "")))
-            end_time = self._parse_datetime(str(item.get(end_key, "")))
+            start_time = self._parse_datetime(
+                str(self._get_value(item, start_key, ""))
+            )
+            end_time = self._parse_datetime(
+                str(self._get_value(item, end_key, ""))
+            )
 
             # description
             desc_key = field_map.get("description", "description")
-            description: Optional[str] = str(item.get(desc_key, "")).strip() or None
+            description: Optional[str] = (
+                str(self._get_value(item, desc_key, "")).strip() or None
+            )
 
             return Event(
                 venue_key=self.venue.key,
@@ -145,6 +155,14 @@ class AjaxParser(BaseParser):
         except Exception as e:
             self.logger.debug(f"AjaxParser: error mapping item: {e}")
             return None
+
+    @staticmethod
+    def _get_value(item: Dict[str, Any], field_path: str, default: Any = None) -> Any:
+        """Read a possibly nested field path from an item."""
+        value = _dig(item, field_path)
+        if value is None and "." not in field_path:
+            value = item.get(field_path, default)
+        return default if value is None else value
 
     def _parse_datetime(self, text: str) -> Optional[datetime]:
         """Parse ISO or human-readable datetime strings."""
@@ -196,6 +214,10 @@ class AjaxParser(BaseParser):
             )
             return None
 
+        afton_key = self._extract_afton_api_key(html)
+        if afton_key:
+            return f"https://aftontickets.com/api/get-events?key={afton_key}"
+
         # Look for JSON API URLs in inline JS (simple heuristic)
         patterns = [
             r'https?://[^\s"\']+/api/events[^\s"\']*',
@@ -207,3 +229,28 @@ class AjaxParser(BaseParser):
                 return matches[0]
 
         return None
+
+    @staticmethod
+    def _known_endpoint_defaults(
+        api_url: str,
+    ) -> tuple[Optional[str], Dict[str, str]]:
+        """Return response defaults for known API providers."""
+        if "aftontickets.com/api/get-events" in api_url:
+            return (
+                "data",
+                {
+                    "title": "event_name",
+                    "date": "start_time",
+                    "start_time": "start_time",
+                    "end_time": "end_time",
+                },
+            )
+        return None, {}
+
+    @staticmethod
+    def _extract_afton_api_key(html: str) -> Optional[str]:
+        """Extract an Afton widget API key from embedded page markup."""
+        match = re.search(r"apiKey:\s*['\"]([a-zA-Z0-9]+)['\"]", html)
+        if not match:
+            return None
+        return match.group(1)

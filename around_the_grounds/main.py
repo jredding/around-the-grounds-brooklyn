@@ -32,6 +32,7 @@ from .utils.timezone_utils import (
     now_in_site_timezone_naive,
 )
 
+
 def load_brewery_config(config_path: Optional[str] = None) -> List[Venue]:
     """Load venue configuration from JSON file (reads breweries.json)."""
     if config_path is None:
@@ -90,9 +91,7 @@ def format_events_output(
             if "Check Instagram" in event.title or "check Instagram" in (
                 event.description or ""
             ):
-                output.append(
-                    f"  ❌ {event.title} @ {event.venue_name}{time_str}"
-                )
+                output.append(f"  ❌ {event.title} @ {event.venue_name}{time_str}")
                 if event.description:
                     output.append(f"     {event.description}")
             else:
@@ -101,9 +100,7 @@ def format_events_output(
                         f"  🎫 {event.title} 🖼️🤖 @ {event.venue_name}{time_str}"
                     )
                 else:
-                    output.append(
-                        f"  🎫 {event.title} @ {event.venue_name}{time_str}"
-                    )
+                    output.append(f"  🎫 {event.title} @ {event.venue_name}{time_str}")
                 if event.description:
                     output.append(f"     {event.description}")
 
@@ -164,9 +161,7 @@ async def _generate_description_for_today(
         return haiku
 
     except Exception as e:
-        logger.warning(
-            f"Failed to generate description, continuing without it: {e}"
-        )
+        logger.warning(f"Failed to generate description, continuing without it: {e}")
         return None
 
 
@@ -328,14 +323,20 @@ def _deploy_with_github_auth(
             repo_dir.mkdir()
 
             # Initialise a fresh local repo — avoids clone failures on empty/new target repos
-            subprocess.run(["git", "init"], cwd=repo_dir, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "init"], cwd=repo_dir, check=True, capture_output=True
+            )
             subprocess.run(
                 ["git", "config", "user.email", "bot@around-the-grounds.app"],
-                cwd=repo_dir, check=True, capture_output=True,
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
             )
             subprocess.run(
                 ["git", "config", "user.name", "Around the Grounds Bot"],
-                cwd=repo_dir, check=True, capture_output=True,
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
             )
 
             # Copy template files — try new multi-template path first, fall back to legacy
@@ -360,10 +361,14 @@ def _deploy_with_github_auth(
             )
 
             site_name = web_data.get("site_name", "Events")
-            commit_msg = f"📅 Update {site_name} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            commit_msg = (
+                f"📅 Update {site_name} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            )
             subprocess.run(
                 ["git", "commit", "-m", commit_msg],
-                cwd=repo_dir, check=True, capture_output=True,
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
             )
 
             auth = GitHubAppAuth(repository_url)
@@ -372,13 +377,17 @@ def _deploy_with_github_auth(
             authenticated_url = f"https://x-access-token:{access_token}@github.com/{auth.repo_owner}/{auth.repo_name}.git"
             subprocess.run(
                 ["git", "remote", "add", "origin", authenticated_url],
-                cwd=repo_dir, check=True, capture_output=True,
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
             )
 
             print(f"🚀 Pushing to {repository_url}...")
             subprocess.run(
                 ["git", "push", "--force", "origin", "HEAD:main"],
-                cwd=repo_dir, check=True, capture_output=True,
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
             )
             print("✅ Deployed successfully! Changes will be live shortly.")
 
@@ -550,6 +559,16 @@ async def async_main(args: argparse.Namespace) -> int:
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Main entry point for the CLI."""
+    args_list = sys.argv[1:] if argv is None else argv
+    if args_list and args_list[0] == "check-url":
+        from .cli.url_commands import run as run_url_commands
+
+        return run_url_commands(args_list[1:])
+    if args_list and args_list[0] == "create-site":
+        from .cli.site_commands import run_create_site
+
+        return run_create_site(args_list[1:])
+
     parser = argparse.ArgumentParser(
         description="Track event schedules across multiple sites"
     )
@@ -585,7 +604,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="Generate web files locally in public/ directory for preview",
     )
 
-    args = parser.parse_args(argv)
+    args = parser.parse_args(args_list)
 
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(
