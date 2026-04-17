@@ -8,7 +8,7 @@ api_url is not provided.
 import logging
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import aiohttp
 
@@ -231,7 +231,7 @@ class AjaxParser(BaseParser):
     @staticmethod
     def _known_endpoint_defaults(
         api_url: str,
-    ) -> "tuple[Optional[str], Dict[str, str]]":
+    ) -> Tuple[Optional[str], Dict[str, str]]:
         """Return (response_path, field_map) defaults for known providers."""
         if "aftontickets.com/api/get-events" in api_url:
             return (
