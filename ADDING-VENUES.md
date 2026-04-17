@@ -1,5 +1,34 @@
 # ADDING NEW SITES AND VENUES
 
+## Recommended path: the authoring CLI
+
+The fastest way to add a venue or create a new site is with the
+authoring CLI, which analyzes a URL, validates the config, and writes
+the JSON for you:
+
+```bash
+# Suggest a config for a URL
+uv run around-the-grounds check-url https://venue.com/events
+
+# Create a new site from one or more URLs
+uv run around-the-grounds create-site --key my-site --name "My Site" \
+  --template music --timezone America/New_York \
+  --url https://venue-one.com/events --url https://venue-two.com/events
+
+# Add a venue to an existing site
+uv run around-the-grounds edit-site my-site --add-url https://new-venue.com/events
+
+# Validate all configs statically
+uv run around-the-grounds site lint
+```
+
+See [SITE-AUTHORING.md](./SITE-AUTHORING.md) for the full CLI surface.
+
+The sections below document the underlying JSON shape and when a new
+venue needs a venue-specific parser. Drop to hand-editing JSON only
+when `check-url` / `create-site` / `edit-site` cannot produce the
+config you need.
+
 ## Adding a New Venue to an Existing Site
 
 If the venue's platform is already supported (WordPress, HTML with CSS selectors, or AJAX/JSON API), just add a venue entry to the site's JSON config — **no parser code needed**.

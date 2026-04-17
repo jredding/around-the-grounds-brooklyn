@@ -15,7 +15,8 @@ Around the Grounds is a multi-site event aggregator platform. Each site is defin
 - **Cloud Run Jobs** with Cloud Scheduler for daily automated site updates
 - **Comprehensive error handling** with retry logic, isolation, and graceful degradation
 - **Temporal workflow integration** with cloud deployment support (local, Temporal Cloud, custom servers)
-- **Extensive test suite** with 344 tests covering unit, integration, vision analysis, haiku generation, and error scenarios
+- **Site authoring CLI** with `check-url`, `create-site`, `edit-site`, and `site lint` subcommands ([SITE-AUTHORING.md](./SITE-AUTHORING.md))
+- **Extensive test suite** with 460+ tests covering unit, integration, vision analysis, haiku generation, CLI authoring, and error scenarios
 - **Modern Python tooling** with uv for dependency management and packaging
 
 ## Development Commands
@@ -40,6 +41,15 @@ uv run around-the-grounds --deploy     # Run and deploy to GitHub Pages (~90s to
 export ANTHROPIC_API_KEY="your-api-key"
 uv run around-the-grounds --verbose    # Run with AI features enabled (~60-90s)
 uv run around-the-grounds --deploy     # Run with AI features and deploy to web (~90s)
+
+# Site authoring CLI (analyze URLs, create / edit / lint site configs)
+uv run around-the-grounds check-url https://venue.com/events
+uv run around-the-grounds create-site --key my-site --name "My Site" \
+    --template music --timezone America/New_York \
+    --url https://venue-one.com/events
+uv run around-the-grounds edit-site my-site --add-url https://new-venue.com/events
+uv run around-the-grounds edit-site my-site --remove-venue old-venue
+uv run around-the-grounds site lint
 ```
 
 **⏱️ Execution Times:** CLI operations typically take 60-90 seconds to scrape all venue websites concurrently. Add extra time for AI features (vision analysis, haiku generation) and git operations when using `--deploy`.
@@ -134,13 +144,19 @@ See [SCHEDULES.md](./SCHEDULES.md)
 
 ### Testing
 ```bash
-# Full test suite (344 tests)
+# Full test suite (460+ tests)
 uv run python -m pytest                    # Run all tests
 uv run python -m pytest tests/unit/        # Unit tests only
 uv run python -m pytest tests/parsers/     # Parser-specific tests
 uv run python -m pytest tests/integration/ # Integration tests
 uv run python -m pytest tests/unit/test_vision_analyzer.py  # Vision analysis tests
 uv run python -m pytest tests/unit/test_haiku_generator.py  # Haiku generation tests
+uv run python -m pytest tests/unit/test_url_analyzer.py     # URL analyzer tests
+uv run python -m pytest tests/unit/test_config_writer.py tests/unit/test_config_validator.py  # Config authoring
+uv run python -m pytest tests/integration/test_check_url_cli.py  # check-url CLI
+uv run python -m pytest tests/integration/test_create_site_cli.py  # create-site CLI
+uv run python -m pytest tests/integration/test_edit_site_cli.py    # edit-site CLI
+uv run python -m pytest tests/integration/test_site_lint_cli.py    # site lint CLI
 uv run python -m pytest tests/integration/test_vision_integration.py  # Vision integration tests
 uv run python -m pytest tests/integration/test_haiku_integration.py   # Haiku integration tests
 uv run python -m pytest tests/test_error_handling.py  # Error handling tests
@@ -282,7 +298,9 @@ The CLI is configured in `pyproject.toml` with entry point `around-the-grounds =
 
 ## Adding New Sites and Venues
 
-See [ADDING-VENUES.md](./ADDING-VENUES.md) for how to add new sites and venues using JSON config files and generic parsers.
+See [SITE-AUTHORING.md](./SITE-AUTHORING.md) for the `check-url` / `create-site` / `edit-site` / `site lint` CLI, which is the recommended path.
+
+See [ADDING-VENUES.md](./ADDING-VENUES.md) for the underlying JSON shape, generic parser options, and when a venue needs a venue-specific parser.
 
 ## Haiku Generator
 
