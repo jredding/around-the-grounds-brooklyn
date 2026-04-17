@@ -22,7 +22,7 @@ except ImportError:
 
 from .config.loader import load_all_sites, load_site_config, load_site_from_path
 from .config.settings import get_git_repository_url
-from .models import Venue, Event, SiteConfig
+from .models import Event, SiteConfig, Venue
 from .scrapers.coordinator import ScraperCoordinator, ScrapingError
 from .utils.haiku_generator import HaikuGenerator
 from .utils.timezone_utils import (
@@ -31,6 +31,7 @@ from .utils.timezone_utils import (
     get_timezone_label,
     now_in_site_timezone_naive,
 )
+
 
 def load_brewery_config(config_path: Optional[str] = None) -> List[Venue]:
     """Load venue configuration from JSON file (reads breweries.json)."""
@@ -90,9 +91,7 @@ def format_events_output(
             if "Check Instagram" in event.title or "check Instagram" in (
                 event.description or ""
             ):
-                output.append(
-                    f"  ❌ {event.title} @ {event.venue_name}{time_str}"
-                )
+                output.append(f"  ❌ {event.title} @ {event.venue_name}{time_str}")
                 if event.description:
                     output.append(f"     {event.description}")
             else:
@@ -101,9 +100,7 @@ def format_events_output(
                         f"  🎫 {event.title} 🖼️🤖 @ {event.venue_name}{time_str}"
                     )
                 else:
-                    output.append(
-                        f"  🎫 {event.title} @ {event.venue_name}{time_str}"
-                    )
+                    output.append(f"  🎫 {event.title} @ {event.venue_name}{time_str}")
                 if event.description:
                     output.append(f"     {event.description}")
 
@@ -164,9 +161,7 @@ async def _generate_description_for_today(
         return haiku
 
     except Exception as e:
-        logger.warning(
-            f"Failed to generate description, continuing without it: {e}"
-        )
+        logger.warning(f"Failed to generate description, continuing without it: {e}")
         return None
 
 
@@ -328,14 +323,20 @@ def _deploy_with_github_auth(
             repo_dir.mkdir()
 
             # Initialise a fresh local repo — avoids clone failures on empty/new target repos
-            subprocess.run(["git", "init"], cwd=repo_dir, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "init"], cwd=repo_dir, check=True, capture_output=True
+            )
             subprocess.run(
                 ["git", "config", "user.email", "bot@around-the-grounds.app"],
-                cwd=repo_dir, check=True, capture_output=True,
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
             )
             subprocess.run(
                 ["git", "config", "user.name", "Around the Grounds Bot"],
-                cwd=repo_dir, check=True, capture_output=True,
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
             )
 
             # Copy template files — try new multi-template path first, fall back to legacy
@@ -360,10 +361,14 @@ def _deploy_with_github_auth(
             )
 
             site_name = web_data.get("site_name", "Events")
-            commit_msg = f"📅 Update {site_name} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            commit_msg = (
+                f"📅 Update {site_name} - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            )
             subprocess.run(
                 ["git", "commit", "-m", commit_msg],
-                cwd=repo_dir, check=True, capture_output=True,
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
             )
 
             auth = GitHubAppAuth(repository_url)
@@ -372,13 +377,17 @@ def _deploy_with_github_auth(
             authenticated_url = f"https://x-access-token:{access_token}@github.com/{auth.repo_owner}/{auth.repo_name}.git"
             subprocess.run(
                 ["git", "remote", "add", "origin", authenticated_url],
-                cwd=repo_dir, check=True, capture_output=True,
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
             )
 
             print(f"🚀 Pushing to {repository_url}...")
             subprocess.run(
                 ["git", "push", "--force", "origin", "HEAD:main"],
-                cwd=repo_dir, check=True, capture_output=True,
+                cwd=repo_dir,
+                check=True,
+                capture_output=True,
             )
             print("✅ Deployed successfully! Changes will be live shortly.")
 

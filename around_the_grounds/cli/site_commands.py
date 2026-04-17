@@ -77,15 +77,9 @@ def run_edit_site(args: argparse.Namespace) -> int:
         print(f"Error: site '{args.site_key}' not found at {config_path}")
         return 1
 
-    selected = [
-        flag
-        for flag in (args.show, args.add_url, args.remove_venue)
-        if flag
-    ]
+    selected = [flag for flag in (args.show, args.add_url, args.remove_venue) if flag]
     if len(selected) != 1:
-        print(
-            "Error: specify exactly one of --show, --add-url, or --remove-venue."
-        )
+        print("Error: specify exactly one of --show, --add-url, or --remove-venue.")
         return 1
 
     if args.show:

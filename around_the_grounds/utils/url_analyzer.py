@@ -17,7 +17,6 @@ from ..models import Event, Venue
 from ..parsers.registry import ParserRegistry
 from .http import default_request_headers
 
-
 _DEFAULT_HTML_SELECTOR_PATTERNS: List[Dict[str, Any]] = [
     {
         "event_container": '[itemtype*="Event"]',

@@ -18,8 +18,7 @@ def default_request_headers() -> Dict[str, str]:
             "Chrome/135.0.0.0 Safari/537.36"
         ),
         "Accept": (
-            "text/html,application/xhtml+xml,application/xml;q=0.9,"
-            "*/*;q=0.8"
+            "text/html,application/xhtml+xml,application/xml;q=0.9," "*/*;q=0.8"
         ),
         "Accept-Language": "en-US,en;q=0.9",
     }

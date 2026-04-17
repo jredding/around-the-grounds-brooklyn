@@ -129,9 +129,7 @@ class AjaxParser(BaseParser):
             # optional times
             start_key = field_map.get("start_time", "start_time")
             end_key = field_map.get("end_time", "end_time")
-            start_time = self._parse_datetime(
-                str(self._get_value(item, start_key, ""))
-            )
+            start_time = self._parse_datetime(str(self._get_value(item, start_key, "")))
             end_time = self._parse_datetime(str(self._get_value(item, end_key, "")))
 
             # description
@@ -178,9 +176,7 @@ class AjaxParser(BaseParser):
         except Exception:
             return None
 
-    def _resolve_date_placeholders(
-        self, params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _resolve_date_placeholders(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Replace {{today_iso}} and {{end_date_iso}} with actual UTC dates."""
         from datetime import timedelta
 
@@ -197,9 +193,7 @@ class AjaxParser(BaseParser):
             resolved[k] = v
         return resolved
 
-    async def _discover_endpoint(
-        self, session: aiohttp.ClientSession
-    ) -> Optional[str]:
+    async def _discover_endpoint(self, session: aiohttp.ClientSession) -> Optional[str]:
         """Scan the page source for AJAX endpoint URLs."""
         try:
             async with session.get(self.venue.url) as response:

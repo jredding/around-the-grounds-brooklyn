@@ -64,9 +64,7 @@ class ScraperCoordinator:
         # Build venue order mapping from config list order so that events
         # within the same day are sorted by the venue's position in the
         # site config, matching the reference site's display order.
-        venue_order: Dict[str, int] = {
-            v.key: idx for idx, v in enumerate(venues)
-        }
+        venue_order: Dict[str, int] = {v.key: idx for idx, v in enumerate(venues)}
 
         connector = aiohttp.TCPConnector(limit=self.max_concurrent)
         async with aiohttp.ClientSession(
