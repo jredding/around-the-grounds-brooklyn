@@ -53,5 +53,16 @@ class ParserRegistry:
         cls._specific[key] = parser_class
 
     @classmethod
+    def get_generic_parsers(cls) -> Dict[str, Type[BaseParser]]:
+        """Return a copy of the generic parser map.
+
+        Exposed so callers (notably the URL analyzer) can iterate the
+        supported source types without importing generic parser classes
+        directly, keeping new generic parser support automatically
+        visible.
+        """
+        return dict(cls._generic)
+
+    @classmethod
     def get_supported_keys(cls) -> List[str]:
         return list(cls._specific.keys())

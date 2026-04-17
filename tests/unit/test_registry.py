@@ -60,6 +60,19 @@ class TestParserRegistry:
         assert "yonder-balebreaker" in keys
         assert isinstance(keys, list)
 
+    def test_get_generic_parsers_returns_copy(self) -> None:
+        """The generic parser map is exposed as a copy callers can iterate."""
+        generic = ParserRegistry.get_generic_parsers()
+
+        assert set(generic.keys()) >= {"wordpress", "html", "ajax"}
+        assert generic["wordpress"] == WordPressParser
+        assert generic["html"] == HtmlSelectorParser
+        assert generic["ajax"] == AjaxParser
+
+        # Mutating the returned dict must not affect the registry.
+        generic.pop("html", None)
+        assert "html" in ParserRegistry.get_generic_parsers()
+
     def test_parser_registry_is_not_empty(self) -> None:
         """Test that the parser registry is not empty."""
         keys = ParserRegistry.get_supported_keys()

@@ -12,6 +12,7 @@ except ImportError:
 
 from ..models import Venue, Event
 from ..parsers import ParserRegistry
+from ..utils.http import default_request_headers
 
 
 class ScrapingError:
@@ -71,7 +72,7 @@ class ScraperCoordinator:
         async with aiohttp.ClientSession(
             connector=connector,
             timeout=self.timeout,
-            headers={"User-Agent": "Around-the-Grounds Event Scraper"},
+            headers=default_request_headers(),
         ) as session:
             tasks = []
             for venue in venues:
@@ -118,7 +119,7 @@ class ScraperCoordinator:
         async with aiohttp.ClientSession(
             connector=connector,
             timeout=self.timeout,
-            headers={"User-Agent": "Around-the-Grounds Event Scraper"},
+            headers=default_request_headers(),
         ) as session:
             events, error = await self._scrape_venue(session, venue)
 
