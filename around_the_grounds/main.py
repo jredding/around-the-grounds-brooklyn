@@ -548,12 +548,15 @@ async def async_main(args: argparse.Namespace) -> int:
     return overall_exit
 
 
-def main(argv: Optional[List[str]] = None) -> int:
-    """Main entry point for the CLI."""
+def _build_arg_parser() -> argparse.ArgumentParser:
+    """Build the top-level argparse parser with subcommands."""
     parser = argparse.ArgumentParser(
         description="Track event schedules across multiple sites"
     )
     parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
+
+    # Scrape flags live on the top-level parser so bare invocation
+    # (e.g. `around-the-grounds --site X --deploy`) continues to work.
     parser.add_argument(
         "--site",
         "-s",
@@ -585,13 +588,140 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="Generate web files locally in public/ directory for preview",
     )
 
+    subparsers = parser.add_subparsers(dest="command")
+
+    # check-url
+    p_check = subparsers.add_parser(
+        "check-url",
+        help="Inspect a URL and suggest parser configuration",
+    )
+    p_check.add_argument("urls", nargs="+", help="URL(s) to analyze")
+    p_check.add_argument(
+        "--source-type",
+        help="Force a specific generic parser family to test.",
+    )
+    p_check.add_argument(
+        "--parser-config",
+        help="JSON object for directed parser testing.",
+    )
+    p_check.add_argument(
+        "--json",
+        action="store_true",
+        help="Print machine-readable JSON output.",
+    )
+
+    # create-site
+    p_create = subparsers.add_parser(
+        "create-site",
+        help="Create a site config from one or more source URLs",
+    )
+    p_create.add_argument("--key", required=True, help="Site key")
+    p_create.add_argument("--name", required=True, help="Site display name")
+    p_create.add_argument("--template", required=True, help="Template directory name")
+    p_create.add_argument("--timezone", required=True, help="IANA timezone name")
+    p_create.add_argument(
+        "--url",
+        dest="urls",
+        action="append",
+        required=True,
+        help="Source URL to analyze and add",
+    )
+    p_create.add_argument(
+        "--target-repo",
+        default="",
+        help="Optional GitHub Pages repository URL",
+    )
+    p_create.add_argument(
+        "--generate-description",
+        action="store_true",
+        help="Enable generated daily description text for this site.",
+    )
+    p_create.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the generated config without writing it.",
+    )
+
+    # edit-site
+    p_edit = subparsers.add_parser(
+        "edit-site",
+        help="Repair an existing site config",
+    )
+    p_edit.add_argument("site_key", help="Site key to edit")
+    p_edit.add_argument(
+        "--show",
+        action="store_true",
+        help="Pretty-print the current site config and exit.",
+    )
+    p_edit.add_argument(
+        "--add-url",
+        help="Analyze a URL and append the resulting venue to the site.",
+    )
+    p_edit.add_argument(
+        "--remove-venue",
+        help="Remove a venue from the site by its key.",
+    )
+    p_edit.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show the resulting config without writing it.",
+    )
+
+    # site (group) — currently only `site lint`
+    p_site = subparsers.add_parser(
+        "site",
+        help="Site configuration utilities",
+    )
+    site_subs = p_site.add_subparsers(dest="site_command")
+    p_lint = site_subs.add_parser(
+        "lint",
+        help="Statically validate one or all site configs.",
+    )
+    p_lint.add_argument(
+        "--site",
+        help="Validate only the named site (defaults to all).",
+    )
+
+    return parser
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    """Main entry point for the CLI."""
+    parser = _build_arg_parser()
     args = parser.parse_args(argv)
 
-    log_level = logging.DEBUG if args.verbose else logging.INFO
+    log_level = logging.DEBUG if getattr(args, "verbose", False) else logging.INFO
     logging.basicConfig(
         level=log_level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
 
+    command = getattr(args, "command", None)
+
+    if command == "check-url":
+        from .cli.url_commands import run_check_url
+
+        return run_check_url(args)
+
+    if command == "create-site":
+        from .cli.site_commands import run_create_site
+
+        return run_create_site(args)
+
+    if command == "edit-site":
+        from .cli.site_commands import run_edit_site
+
+        return run_edit_site(args)
+
+    if command == "site":
+        site_command = getattr(args, "site_command", None)
+        if site_command == "lint":
+            from .cli.lint_commands import run_site_lint
+
+            return run_site_lint(args)
+        parser.parse_args(["site", "--help"])
+        return 1
+
+    # Default: scrape flow (unchanged behavior).
     print("🌐 Around the Grounds - Event Tracker")
     print("=" * 50)
 
@@ -599,7 +729,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return asyncio.run(async_main(args))
     except Exception as e:
         print(f"Critical Error: {e}")
-        if args.verbose:
+        if getattr(args, "verbose", False):
             import traceback
 
             traceback.print_exc()
