@@ -3,7 +3,8 @@
   "name": "Brooklyn Children's Events",
   "template": "kids",
   "timezone": "America/New_York",
-  "target_repo": "https://github.com/jredding/atg-childrens-events.git",
+  "target_repo": "https://github.com/jredding/lobakgo-to.git",
+  "deploy_subdir": "p/park-slope-children",
   "generate_description": false,
   "venues": [
     {

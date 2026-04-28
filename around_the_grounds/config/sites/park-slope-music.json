@@ -3,7 +3,8 @@
   "name": "Park Slope Indie Music Events",
   "template": "music",
   "timezone": "America/New_York",
-  "target_repo": "https://github.com/jredding/atg-park-slope-music.git",
+  "target_repo": "https://github.com/jredding/lobakgo-to.git",
+  "deploy_subdir": "p/park-slope-music",
   "generate_description": false,
   "venues": [
     {

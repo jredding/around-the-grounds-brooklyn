@@ -3,8 +3,8 @@
   "name": "Food Trucks in Ballard",
   "template": "food-trucks",
   "timezone": "America/Los_Angeles",
-  "target_repo": "https://github.com/steveandroulakis/ballard-food-trucks.git",
-  "deploy_subdir": "public",
+  "target_repo": "https://github.com/jredding/lobakgo-to.git",
+  "deploy_subdir": "p/ballard-food-trucks",
   "generate_description": true,
   "venues": [
     {
