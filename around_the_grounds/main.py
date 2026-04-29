@@ -158,20 +158,18 @@ async def _generate_haiku_for_today(events: List[Event]) -> Optional[str]:
     return await _generate_description_for_today(events, dummy_site)
 
 
-async def generate_web_data(
-    events: List[Event],
-    error_messages: Optional[List[str]] = None,
-    site: Optional[SiteConfig] = None,
-) -> dict:
-    """Generate web-friendly JSON data from events."""
-    web_events = []
-    site_name = site.name if site else "Events"
-    site_key = site.key if site else "events"
-    site_tz = site.timezone if site else "America/Los_Angeles"
-    tz_label = get_timezone_label(site_tz)
-    tz_full = get_timezone_full_name(site_tz)
-    tz_note = f"All event times are in {tz_full} ({tz_label})."
+def _build_web_events(
+    events: List[Event], site: Optional[SiteConfig] = None
+) -> List[dict]:
+    """Build the events portion of data.json — deterministic from inputs.
 
+    Used both by ``generate_web_data`` when serializing and by
+    ``deploy_to_web``'s early-skip check, which compares this output to a
+    prior data.json's "events" array to decide whether anything actually
+    changed before spending a haiku call or a deploy clone.
+    """
+    site_tz = site.timezone if site else "America/Los_Angeles"
+    web_events: List[dict] = []
     for event in events:
         web_event = {
             "date": event.date.isoformat(),
@@ -220,6 +218,65 @@ async def generate_web_data(
             "location": event.venue_name,
         }
         web_events.append(web_event)
+    return web_events
+
+
+async def _fetch_prior_events(
+    target_repo: str, deploy_subdir: str
+) -> Optional[List[dict]]:
+    """Fetch the deployed data.json's events from the target repo's raw URL.
+
+    Returns the prior events list, or ``None`` on any failure (network
+    error, missing file, parse error, malformed target_repo). Callers
+    should fail-open on ``None`` and proceed with a normal deploy.
+    """
+    if not target_repo:
+        return None
+
+    url_path = target_repo.replace("https://github.com/", "").replace(".git", "")
+    parts = url_path.split("/")
+    if len(parts) != 2:
+        return None
+    owner, repo = parts
+
+    subdir_path = f"{deploy_subdir.strip('/')}/" if deploy_subdir else ""
+    raw_url = (
+        f"https://raw.githubusercontent.com/{owner}/{repo}/main/"
+        f"{subdir_path}data.json"
+    )
+
+    try:
+        import aiohttp
+
+        timeout = aiohttp.ClientTimeout(total=15)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(raw_url) as response:
+                if response.status != 200:
+                    return None
+                # Some servers serve raw JSON with text/plain — bypass strict
+                # content-type check and decode the body ourselves.
+                body = await response.text()
+                data = json.loads(body)
+                events = data.get("events")
+                return events if isinstance(events, list) else None
+    except Exception as exc:
+        logger.debug("Could not fetch prior data.json from %s: %s", raw_url, exc)
+        return None
+
+
+async def generate_web_data(
+    events: List[Event],
+    error_messages: Optional[List[str]] = None,
+    site: Optional[SiteConfig] = None,
+) -> dict:
+    """Generate web-friendly JSON data from events."""
+    web_events = _build_web_events(events, site)
+    site_name = site.name if site else "Events"
+    site_key = site.key if site else "events"
+    site_tz = site.timezone if site else "America/Los_Angeles"
+    tz_label = get_timezone_label(site_tz)
+    tz_full = get_timezone_full_name(site_tz)
+    tz_note = f"All event times are in {tz_full} ({tz_label})."
 
     unique_error_messages = list(dict.fromkeys(error_messages or []))
 
@@ -268,6 +325,25 @@ async def deploy_to_web(
         if not repo_url and site and site.target_repo:
             repo_url = site.target_repo
         repository_url = get_git_repository_url(repo_url)
+
+        # Early skip: fetch the prior data.json's events from the public raw
+        # URL of the configured target and compare to what we just scraped. If
+        # they match, no haiku call, no clone, no commit, no push — exit
+        # cleanly. Only valid when the deploy is targeting the site's own
+        # configured repo (not a --git-repo override), since the raw URL is
+        # derived from site.target_repo + site.deploy_subdir.
+        if site and site.target_repo and not git_repo_url:
+            prior_events = await _fetch_prior_events(
+                site.target_repo, site.deploy_subdir
+            )
+            if prior_events is not None:
+                new_events = _build_web_events(events, site)
+                if prior_events == new_events:
+                    print(
+                        "ℹ️  No event changes since last deploy — "
+                        "skipping (no haiku, no clone, no commit)"
+                    )
+                    return True
 
         error_messages = [error.to_user_message() for error in errors or []]
         error_messages = list(dict.fromkeys(error_messages))
