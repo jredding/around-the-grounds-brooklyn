@@ -36,6 +36,12 @@ def _dig(obj: Any, path: str) -> Any:
 class AjaxParser(BaseParser):
     """Generic parser for sites that expose events via an AJAX/JSON endpoint."""
 
+    # HTTP status codes that indicate a transient failure worth retrying.
+    # These are surfaced as aiohttp.ClientError so the ScraperCoordinator's
+    # retry/backoff logic engages; all other non-200 codes are raised as
+    # ValueError, which the coordinator treats as a permanent parser error.
+    RETRYABLE_STATUS = frozenset({408, 425, 429, 500, 502, 503, 504})
+
     def __init__(self, venue: Venue) -> None:
         super().__init__(venue)
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -64,19 +70,19 @@ class AjaxParser(BaseParser):
 
         self.logger.debug(f"AjaxParser: fetching {api_url}")
 
-        try:
-            if method == "POST":
-                async with session.post(api_url, json=params) as response:
-                    if response.status != 200:
-                        raise ValueError(f"HTTP {response.status}: {api_url}")
-                    data = await response.json(content_type=None)
-            else:
-                async with session.get(api_url, params=params or None) as response:
-                    if response.status != 200:
-                        raise ValueError(f"HTTP {response.status}: {api_url}")
-                    data = await response.json(content_type=None)
-        except aiohttp.ClientError as e:
-            raise ValueError(f"Network error fetching {api_url}: {e}")
+        # Note: transient network errors (aiohttp.ClientError) are intentionally
+        # left unhandled so they propagate to the ScraperCoordinator, which
+        # retries them with backoff. Wrapping them in ValueError here would mark
+        # the failure as permanent and skip the retry — causing the whole
+        # venue's events to vanish on a single flaky response.
+        if method == "POST":
+            async with session.post(api_url, json=params) as response:
+                self._raise_for_status(response, api_url)
+                data = await response.json(content_type=None)
+        else:
+            async with session.get(api_url, params=params or None) as response:
+                self._raise_for_status(response, api_url)
+                data = await response.json(content_type=None)
 
         # Traverse to the events array
         events_data: Any = _dig(data, response_path) if response_path else data
@@ -101,6 +107,25 @@ class AjaxParser(BaseParser):
 
         self.logger.info(f"AjaxParser: {len(events)} events from {api_url}")
         return events
+
+    def _raise_for_status(self, response: aiohttp.ClientResponse, api_url: str) -> None:
+        """Raise on non-200 responses, distinguishing transient from permanent.
+
+        Transient statuses (rate-limiting, gateway/server errors) are raised as
+        aiohttp.ClientResponseError so the coordinator retries with backoff.
+        Permanent client errors (e.g. 404) are raised as ValueError, which the
+        coordinator treats as a non-retryable parser error.
+        """
+        if response.status == 200:
+            return
+        if response.status in self.RETRYABLE_STATUS:
+            raise aiohttp.ClientResponseError(
+                response.request_info,
+                response.history,
+                status=response.status,
+                message=f"Transient HTTP {response.status} from {api_url}",
+            )
+        raise ValueError(f"HTTP {response.status}: {api_url}")
 
     def _map_item(
         self, item: Dict[str, Any], field_map: Dict[str, str]
@@ -162,9 +187,7 @@ class AjaxParser(BaseParser):
         except Exception:
             return None
 
-    def _resolve_date_placeholders(
-        self, params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _resolve_date_placeholders(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Replace {{today_iso}} and {{end_date_iso}} with actual UTC dates."""
         now = datetime.now(timezone.utc)
         end = now + timedelta(days=7)
@@ -179,9 +202,7 @@ class AjaxParser(BaseParser):
             resolved[k] = v
         return resolved
 
-    async def _discover_endpoint(
-        self, session: aiohttp.ClientSession
-    ) -> Optional[str]:
+    async def _discover_endpoint(self, session: aiohttp.ClientSession) -> Optional[str]:
         """Scan the page source for AJAX endpoint URLs."""
         try:
             async with session.get(self.venue.url) as response:
